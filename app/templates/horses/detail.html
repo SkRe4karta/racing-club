@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Лошадь: {{ horse.nickname }} &mdash; АИС «Скачки»{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('horses.list_horses') }}" class="btn btn-outline-secondary btn-sm mb-3">
+        <i class="bi bi-arrow-left"></i> К списку лошадей
+    </a>
+
+    <!-- Верхняя часть: основные сведения -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-primary text-white rounded-circle p-3 me-3">
+                    <i class="bi bi-gem fs-3"></i>
+                </div>
+                <div>
+                    <h2 class="h4 fw-bold mb-1">{{ horse.nickname }}</h2>
+                    <span class="text-muted">Регистрационная карточка лошади</span>
+                </div>
+            </div>
+            <hr>
+            <div class="row g-3">
+                <div class="col-sm-6 col-md-3">
+                    <div class="text-muted small">Пол</div>
+                    <div class="fw-semibold fs-5">{{ horse.gender }}</div>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <div class="text-muted small">Возраст</div>
+                    <div class="fw-semibold fs-5">{{ horse.age }} лет</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Владелец</div>
+                    <div class="fw-semibold fs-5">
+                        <a href="{{ url_for('owners.detail_owner', owner_id=horse.owner.id) }}" class="text-decoration-none">
+                            <i class="bi bi-person me-1"></i>{{ horse.owner.full_name }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижняя часть: история состязаний -->
+    <div class="card shadow-sm">
+        <div class="card-header py-3">
+            <h5 class="card-title mb-0 fw-bold">
+                <i class="bi bi-trophy me-2 text-warning"></i>История участия в состязаниях
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if horse.results %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Дата и время</th>
+                                <th>Состязание</th>
+                                <th>Ипподром</th>
+                                <th>Жокей</th>
+                                <th>Статус / Место</th>
+                                <th>Результат</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in horse.results %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">{{ res.competition.formatted_date }}</div>
+                                        <div class="small text-muted">{{ res.competition.formatted_time }}</div>
+                                    </td>
+                                    <td class="fw-bold">
+                                        {% if res.competition.is_completed %}
+                                            <a href="{{ url_for('competitions.past_detail', comp_id=res.competition.id) }}" class="text-decoration-none">
+                                                {{ res.competition.title }}
+                                            </a>
+                                        {% else %}
+                                            <a href="{{ url_for('competitions.future_detail', comp_id=res.competition.id) }}" class="text-decoration-none">
+                                                {{ res.competition.title }}
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ res.competition.location }}</td>
+                                    <td>
+                                        <a href="{{ url_for('jockeys.detail_jockey', jockey_id=res.jockey.id) }}" class="text-decoration-none">
+                                            {{ res.jockey.full_name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if res.competition.is_completed %}
+                                            {% if res.is_disqualified %}
+                                                <span class="badge bg-danger">Дисквалификация</span>
+                                            {% elif res.place == 1 %}
+                                                <span class="place-badge place-1">1</span> <span class="fw-bold text-warning-emphasis ms-1">1 место</span>
+                                            {% elif res.place == 2 %}
+                                                <span class="place-badge place-2">2</span> <span class="fw-semibold ms-1">2 место</span>
+                                            {% elif res.place == 3 %}
+                                                <span class="place-badge place-3">3</span> <span class="fw-semibold ms-1">3 место</span>
+                                            {% else %}
+                                                <span class="place-badge place-other">{{ res.place }}</span> <span class="text-muted ms-1">{{ res.place }} место</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-primary">Запланировано</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if res.competition.is_completed %}
+                                            <span class="font-monospace fw-semibold">{{ res.formatted_finish_time }}</span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-clock-history fs-1 d-block mb-2"></i>
+                    История состязаний для данной лошади отсутствует.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

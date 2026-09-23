@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Внутренняя ошибка &mdash; АИС «Скачки»{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center text-center py-5">
+    <div class="col-md-6">
+        <div class="display-1 fw-bold text-danger mb-3">500</div>
+        <h2 class="h4 fw-bold mb-3">Произошла внутренняя ошибка приложения</h2>
+        <p class="text-muted mb-4">
+            При обработке вашего запроса возникла непредвиденная ошибка. Целостность ранее сохраненных данных не нарушена.
+        </p>
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+            <i class="bi bi-house-door"></i> Вернуться на главную
+        </a>
+    </div>
+</div>
+{% endblock %}

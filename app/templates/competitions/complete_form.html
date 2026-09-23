@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Ввод результатов: {{ competition.title }} &mdash; АИС «Скачки»{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-9">
+        <div class="card shadow-sm">
+            <div class="card-header py-3 bg-light">
+                <h5 class="card-title mb-0 fw-bold">
+                    <i class="bi bi-flag-fill me-2 text-success"></i>Завершение состязания: ввод результатов
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <!-- Карточка сведений о состязании -->
+                <div class="p-3 mb-4 bg-light rounded border">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <h4 class="fw-bold mb-1">{{ competition.title }}</h4>
+                            <div class="text-muted small">
+                                <i class="bi bi-calendar"></i> {{ competition.formatted_date }} &bull;
+                                <i class="bi bi-clock"></i> {{ competition.formatted_time }} &bull;
+                                <i class="bi bi-geo-alt"></i> {{ competition.location }}
+                            </div>
+                        </div>
+                        <span class="badge bg-primary fs-6">Запланировано</span>
+                    </div>
+                </div>
+
+                <div class="alert alert-info py-2 px-3 small mb-4">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Правила фиксации результатов:</strong> Участники зафиксированы предварительной заявкой. Для каждого участника необходимо указать показанное время (например: <code>124.50</code> или <code>02:04.50</code>) либо отметить чекбокс «Дисквалификация». Места будут рассчитаны автоматически по возрастанию времени. После сохранения изменения запрещены.
+                </div>
+
+                <form method="POST" action="{{ url_for('competitions.complete', comp_id=competition.id) }}">
+                    <div class="table-responsive mb-4">
+                        <table class="table table-hover align-middle border">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Лошадь</th>
+                                    <th>Жокей</th>
+                                    <th style="width: 220px;">Показанное время</th>
+                                    <th class="text-center" style="width: 170px;">Дисквалификация</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for res in results %}
+                                    {% set res_sub = submitted_data.get(res.id) %}
+                                    {% set is_disq = res_sub.is_disqualified if res_sub else False %}
+                                    {% set time_val = res_sub.time_str if res_sub else '' %}
+                                    <tr class="participant-row">
+                                        <td>{{ loop.index }}</td>
+                                        <td>
+                                            <div class="fw-bold">{{ res.horse.nickname }}</div>
+                                            <div class="small text-muted">{{ res.horse.gender }}, {{ res.horse.age }} лет &bull; владелец: {{ res.horse.owner.full_name }}</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">{{ res.jockey.full_name }}</div>
+                                            <div class="small text-muted">рейтинг: {{ "%.1f"|format(res.jockey.rating) }}</div>
+                                        </td>
+                                        <td>
+                                            <input type="text"
+                                                   name="time_{{ res.id }}"
+                                                   id="time_{{ res.id }}"
+                                                   class="form-control form-control-sm font-monospace time-input"
+                                                   placeholder="например 02:04.50"
+                                                   value="{{ time_val }}"
+                                                   {% if is_disq %}disabled{% endif %}>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check d-inline-block">
+                                                <input class="form-check-input disq-checkbox"
+                                                       type="checkbox"
+                                                       name="disq_{{ res.id }}"
+                                                       id="disq_{{ res.id }}"
+                                                       onchange="toggleTimeInput(this)"
+                                                       {% if is_disq %}checked{% endif %}>
+                                                <label class="form-check-label small text-danger fw-semibold" for="disq_{{ res.id }}">
+                                                    Дисквал.
+                                                </label>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('competitions.future_detail', comp_id=competition.id) }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Отмена
+                        </a>
+                        <button type="submit" class="btn btn-success px-4" onclick="return confirm('Завершить состязание и зафиксировать результаты? После завершения изменения будут заблокированы.');">
+                            <i class="bi bi-check-circle"></i> Зафиксировать результаты и рассчитать места
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

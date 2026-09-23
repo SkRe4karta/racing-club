@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}Добавление прошедшего состязания &mdash; АИС «Скачки»{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-9">
+        <div class="card shadow-sm">
+            <div class="card-header py-3 bg-light">
+                <h5 class="card-title mb-0 fw-bold">
+                    <i class="bi bi-clock-history me-2 text-primary"></i>Внесение состоявшегося состязания с результатами
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                {% if not horses or not jockeys %}
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Для внесения состязания необходимо наличие зарегистрированных лошадей и жокеев.
+                    </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('competitions.past_add') }}">
+                    <!-- Параметры состязания -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="title" class="form-label fw-semibold">Наименование состязания <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" value="{{ title or '' }}" required autofocus placeholder="например Летний Кубок">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="event_date" class="form-label fw-semibold">Дата проведения <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="event_date" name="event_date" value="{{ date_val or '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="event_time" class="form-label fw-semibold">Время начала <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" id="event_time" name="event_time" value="{{ time_val or '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="location" class="form-label fw-semibold">Ипподром (место) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="location" name="location" value="{{ location or '' }}" required placeholder="например Казанский ипподром">
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Участники и их результаты -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h6 class="fw-bold mb-0">Участники и показанные результаты</h6>
+                                <span class="text-muted small">Укажите пару «лошадь &mdash; жокей» и введите время либо отметьте дисквалификацию</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addParticipantRow('past-participants-container', 'past-participant-template')">
+                                <i class="bi bi-plus-circle"></i> Добавить участника
+                            </button>
+                        </div>
+
+                        <div id="past-participants-container">
+                            {% for p in participants %}
+                                <div class="participant-row card p-3 mb-2 bg-light border">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-auto">
+                                            <span class="badge bg-secondary row-number">{{ loop.index }}</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted mb-1">Лошадь <span class="text-danger">*</span></label>
+                                            <select name="horse_id[]" class="form-select form-select-sm" required>
+                                                <option value="" disabled {% if not p.horse_id %}selected{% endif %}>Выберите лошадь...</option>
+                                                {% for horse in horses %}
+                                                    <option value="{{ horse.id }}" {% if p.horse_id|string == horse.id|string %}selected{% endif %}>
+                                                        {{ horse.nickname }} ({{ horse.gender }}, {{ horse.age }} лет)
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted mb-1">Жокей <span class="text-danger">*</span></label>
+                                            <select name="jockey_id[]" class="form-select form-select-sm" required>
+                                                <option value="" disabled {% if not p.jockey_id %}selected{% endif %}>Выберите жокея...</option>
+                                                {% for jockey in jockeys %}
+                                                    <option value="{{ jockey.id }}" {% if p.jockey_id|string == jockey.id|string %}selected{% endif %}>
+                                                        {{ jockey.full_name }} (рейтинг: {{ "%.1f"|format(jockey.rating) }})
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label small text-muted mb-1">Время (ММ:СС.сс)</label>
+                                            <input type="text"
+                                                   name="finish_time[]"
+                                                   class="form-control form-control-sm font-monospace time-input"
+                                                   placeholder="например 02:04.50"
+                                                   value="{{ p.time_str or '' }}"
+                                                   {% if p.is_disqualified %}disabled{% endif %}>
+                                        </div>
+                                        <div class="col-auto text-center mt-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input disq-checkbox"
+                                                       type="checkbox"
+                                                       name="disq_{{ loop.index0 }}"
+                                                       id="disq_{{ loop.index0 }}"
+                                                       onchange="toggleTimeInput(this)"
+                                                       {% if p.is_disqualified %}checked{% endif %}>
+                                                <label class="form-check-label disq-label small text-danger fw-semibold" for="disq_{{ loop.index0 }}">
+                                                    Дисквал.
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto text-end mt-3">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParticipantRow(this)" title="Удалить строку">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('competitions.past_list') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Назад
+                        </a>
+                        <button type="submit" class="btn btn-success px-4" {% if not horses or not jockeys %}disabled{% endif %}>
+                            <i class="bi bi-check-lg"></i> Сохранить прошедшее состязание
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Шаблон для JS добавления строки в прошедшее состязание -->
+<template id="past-participant-template">
+    <div class="participant-row card p-3 mb-2 bg-light border">
+        <div class="row g-2 align-items-center">
+            <div class="col-auto">
+                <span class="badge bg-secondary row-number">0</span>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">Лошадь <span class="text-danger">*</span></label>
+                <select name="horse_id[]" class="form-select form-select-sm" required>
+                    <option value="" disabled selected>Выберите лошадь...</option>
+                    {% for horse in horses %}
+                        <option value="{{ horse.id }}">{{ horse.nickname }} ({{ horse.gender }}, {{ horse.age }} лет)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">Жокей <span class="text-danger">*</span></label>
+                <select name="jockey_id[]" class="form-select form-select-sm" required>
+                    <option value="" disabled selected>Выберите жокея...</option>
+                    {% for jockey in jockeys %}
+                        <option value="{{ jockey.id }}">{{ jockey.full_name }} (рейтинг: {{ "%.1f"|format(jockey.rating) }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Время (ММ:СС.сс)</label>
+                <input type="text"
+                       name="finish_time[]"
+                       class="form-control form-control-sm font-monospace time-input"
+                       placeholder="например 02:04.50">
+            </div>
+            <div class="col-auto text-center mt-3">
+                <div class="form-check">
+                    <input class="form-check-input disq-checkbox"
+                           type="checkbox"
+                           name="disq_0"
+                           id="disq_0"
+                           onchange="toggleTimeInput(this)">
+                    <label class="form-check-label disq-label small text-danger fw-semibold" for="disq_0">
+                        Дисквал.
+                    </label>
+                </div>
+            </div>
+            <div class="col-auto text-end mt-3">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParticipantRow(this)" title="Удалить строку">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}

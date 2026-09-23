@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Главная &mdash; АИС «Скачки»{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h1 class="h3 fw-bold mb-1">Клуб любителей скачек «Скачки»</h1>
+        <p class="text-muted mb-0">Автоматизированная система учета участников, заездов и результатов состязаний</p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('competitions.future_add') }}" class="btn btn-primary me-2">
+            <i class="bi bi-calendar-plus"></i> Новое состязание
+        </a>
+        <a href="{{ url_for('competitions.complete') }}" class="btn btn-outline-success">
+            <i class="bi bi-check-circle"></i> Завершить заезд
+        </a>
+    </div>
+</div>
+
+<!-- Виджеты со статистикой -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 p-3 text-center border-start border-primary border-4">
+            <div class="text-muted small">Лошади</div>
+            <div class="fs-3 fw-bold text-primary">{{ stats.horses_count }}</div>
+            <a href="{{ url_for('horses.list_horses') }}" class="stretched-link"></a>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 p-3 text-center border-start border-info border-4">
+            <div class="text-muted small">Жокеи</div>
+            <div class="fs-3 fw-bold text-info">{{ stats.jockeys_count }}</div>
+            <a href="{{ url_for('jockeys.list_jockeys') }}" class="stretched-link"></a>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 p-3 text-center border-start border-secondary border-4">
+            <div class="text-muted small">Владельцы</div>
+            <div class="fs-3 fw-bold text-secondary">{{ stats.owners_count }}</div>
+            <a href="{{ url_for('owners.list_owners') }}" class="stretched-link"></a>
+        </div>
+    </div>
+    <div class="col-6 col-md-6 col-lg-3">
+        <div class="card h-100 p-3 text-center border-start border-warning border-4">
+            <div class="text-muted small">Будущие состязания</div>
+            <div class="fs-3 fw-bold text-warning">{{ stats.future_competitions_count }}</div>
+            <a href="{{ url_for('competitions.future_list') }}" class="stretched-link"></a>
+        </div>
+    </div>
+    <div class="col-6 col-md-6 col-lg-3">
+        <div class="card h-100 p-3 text-center border-start border-success border-4">
+            <div class="text-muted small">Прошедшие состязания</div>
+            <div class="fs-3 fw-bold text-success">{{ stats.past_competitions_count }}</div>
+            <a href="{{ url_for('competitions.past_list') }}" class="stretched-link"></a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Ближайшие будущие состязания -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span class="fs-6 fw-bold"><i class="bi bi-calendar-event me-2 text-primary"></i>Ближайшие состязания</span>
+                <a href="{{ url_for('competitions.future_list') }}" class="btn btn-sm btn-outline-primary">Все будущие</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_future %}
+                    <div class="list-group list-group-flush">
+                        {% for comp in recent_future %}
+                            <a href="{{ url_for('competitions.future_detail', comp_id=comp.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">
+                                <div>
+                                    <div class="fw-semibold">{{ comp.title }}</div>
+                                    <div class="text-muted small">
+                                        <i class="bi bi-geo-alt"></i> {{ comp.location }} &bull; 
+                                        <i class="bi bi-people"></i> Участников: {{ comp.results|length }}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="badge bg-primary">{{ comp.formatted_date }}</div>
+                                    <div class="small text-muted">{{ comp.formatted_time }}</div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                        Нет запланированных состязаний.
+                        <div class="mt-2">
+                            <a href="{{ url_for('competitions.future_add') }}" class="btn btn-sm btn-primary">Создать состязание</a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Недавно прошедшие состязания -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span class="fs-6 fw-bold"><i class="bi bi-check-circle me-2 text-success"></i>Завершенные заезды</span>
+                <a href="{{ url_for('competitions.past_list') }}" class="btn btn-sm btn-outline-success">Все прошедшие</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_past %}
+                    <div class="list-group list-group-flush">
+                        {% for comp in recent_past %}
+                            <a href="{{ url_for('competitions.past_detail', comp_id=comp.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">
+                                <div>
+                                    <div class="fw-semibold">{{ comp.title }}</div>
+                                    <div class="text-muted small">
+                                        <i class="bi bi-geo-alt"></i> {{ comp.location }} &bull;
+                                        <i class="bi bi-award"></i> Зафиксировано участников: {{ comp.results|length }}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="badge bg-success">{{ comp.formatted_date }}</div>
+                                    <div class="small text-muted">{{ comp.formatted_time }}</div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-clock-history fs-1 d-block mb-2"></i>
+                        Пока нет завершенных состязаний.
+                        <div class="mt-2">
+                            <a href="{{ url_for('competitions.past_add') }}" class="btn btn-sm btn-success">Добавить прошедшее</a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
