@@ -1,152 +1,63 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>
-      {% block title %}
-        АИС «Скачки»
-      {% endblock %}
-    </title>
-    <script src="{{ url_for('static', filename='js/theme.js') }}">
-    </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  </head>
-  <body>
-    <a class="skip-link" href="#content">
-      Перейти к содержимому
-    </a>
-    {% set nav = [('main.index','Главная','⌂'),('horses.list_horses','Лошади','♞'),('jockeys.list_jockeys','Жокеи','♙'),('owners.list_owners','Владельцы','♧'),('competitions.future_list','Будущие состязания','▦'),('competitions.past_list','Прошедшие состязания','⚑')] %}
-    {% set section = 'Главная' if request.blueprint == 'main' else 'Лошади' if request.blueprint == 'horses' else 'Жокеи' if request.blueprint == 'jockeys' else 'Владельцы' if request.blueprint == 'owners' else 'Прошедшие состязания' if '/past' in request.path else 'Будущие состязания' if request.blueprint == 'competitions' else 'Страница' %}
-    {% if can('cabinet') %}
-      {% set nav = nav + [('cabinet.dashboard','Личный кабинет','⌂'),('cabinet.applications','Заявки','▤')] %}
-    {% endif %}
-    {% if can('manage_competitions') %}{% set nav = nav + [('admin.dashboard','Администрирование','⚙'),('admin.applications','Допуск заявок','▤'),('admin.audit','Журнал действий','▦')] %}{% endif %}
-    {% if can('manage_system') %}{% set nav = nav + [('root.dashboard_root','Системная панель','⚙')] %}{% endif %}
-    {% if current_user.is_authenticated %}
-      {% set nav = nav + [('cabinet.notifications','Уведомления','✉')] %}
-    {% endif %}
-    {% if request.blueprint == 'cabinet' %}
-      {% set section = 'Уведомления' if 'notification' in request.endpoint else 'Заявки' if 'application' in request.endpoint else 'Личный кабинет' %}
-    {% endif %}
-    {% if request.blueprint == 'admin' %}{% set section = 'Журнал действий' if request.endpoint == 'admin.audit' else 'Допуск заявок' if request.endpoint == 'admin.applications' else 'Администрирование' %}{% elif request.blueprint == 'root' %}{% set section = 'Системная панель' %}{% endif %}
-    <div class="menu-shade" hidden>
-    </div>
-    <aside class="sidebar" id="sidebar" aria-label="Основное меню">
-      <a class="brand" href="{{ url_for('main.index') }}">
-        <span class="brand-mark" aria-hidden="true">
-          ♞
-        </span>
-        <span>
-          СКАЧКИ
-          <small>
-            Клубная информационная система
-          </small>
-        </span>
-      </a>
-      <div class="nav-caption">
-        РАБОЧЕЕ ПРОСТРАНСТВО
-      </div>
-      <nav>
-        {% for endpoint,label,icon in nav %}
-          <a class="nav-link {% if section == label %}active{% endif %}" {% if section == label %}aria-current="page"{% endif %} href="{{ url_for(endpoint) }}">
-            <span class="nav-icon" aria-hidden="true">
-              {{ icon }}
-            </span>
-            {{ label }}{% if endpoint == 'cabinet.notifications' %} · {{ unread_notifications }}{% endif %}
-          </a>
-        {% endfor %}
-      </nav>
-      <div class="sidebar-note">
-        <span class="live-dot">
-        </span>
-        Учёт клуба и состязаний
-        <small>
-          Учебная информационная система
-        </small>
-      </div>
-    </aside>
-    <div class="workspace">
-      <header class="topbar">
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn menu-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Открыть меню">
-            ☰
-          </button>
-          <div>
-            <div class="eyebrow">
-              КЛУБ ЛЮБИТЕЛЕЙ СКАЧЕК
-            </div>
-            <strong>
-              {{ section }}
-            </strong>
-          </div>
-        </div>
-        <div class="d-flex gap-2">
-          {% if current_user.is_authenticated %}
-            <a class="btn btn-outline-secondary" href="{{ url_for('auth.account') }}">Аккаунт</a>
-            <form method="POST" action="{{ url_for('auth.logout') }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-secondary">Выйти</button>
-            </form>
-          {% else %}
-            <a class="btn btn-outline-secondary" href="{{ url_for('auth.login') }}">Вход</a>
-            <a class="btn btn-primary" href="{{ url_for('auth.register') }}">Регистрация</a>
-          {% endif %}
-          <button type="button" class="btn btn-outline-secondary" id="theme-toggle" aria-label="Переключить тему">
-            ◐
-            <span>
-              Тема
-            </span>
-          </button>
-          <button type="button" class="btn btn-outline-secondary print-button" onclick="window.print()">
-            Печать
-          </button>
-        </div>
-      </header>
-      <main class="main-content" id="content" tabindex="-1">
-        <div class="breadcrumbs">
-          <a href="{{ url_for('main.index') }}">
-            Главная
-          </a>
-          {% if section != 'Главная' %}
-            <span aria-hidden="true">
-              /
-            </span>
-            {% for endpoint,label,icon in nav if label == section %}
-              <a href="{{ url_for(endpoint) }}">
-                {{ section }}
-              </a>
-            {% endfor %}
-          {% endif %}
-          {% if '/add' in request.path %}
-            <span>
-              /
-            </span>
-            <span>
-              Добавление
-            </span>
-          {% endif %}
-        </div>
-        {% for category,message in get_flashed_messages(with_categories=true) %}
-          <div class="alert alert-{{ category }}" role="alert">
-            {{ message }}
-          </div>
-        {% endfor %}
-        {% block content %}
-        {% endblock %}
-      </main>
-      <footer class="footer">
-        Racing Club {{ config.VERSION }}
-        <span>
-          Учёт. Состязания. Результаты.
-        </span>
-      </footer>
-    </div>
-    <script src="{{ url_for('static', filename='js/dynamic_rows.js') }}">
-    </script>
-    <script src="{{ url_for('static', filename='js/app.js') }}" defer>
-    </script>
-    {% block scripts %}
-    {% endblock %}
-  </body>
-</html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Racing Club — конный спорт в цифрах{% endblock %}</title>
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/portal.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+<noscript><style>.public-nav{display:flex;position:static;flex-wrap:wrap}.portal-header{height:auto;flex-wrap:wrap;padding-top:20px;padding-bottom:20px}.cabinet-shell .sidebar{position:static;transform:none;width:auto}.cabinet-shell .workspace{margin-left:0}.public-menu-button,.menu-toggle{display:none!important}</style></noscript>
+</head>
+{% set private = request.blueprint in ('cabinet','admin','root','auth') or request.endpoint == 'predictions.history' %}
+{% set cabinet_url = url_for('root.dashboard_root') if can('manage_system') else url_for('admin.dashboard') if can('manage_competitions') else url_for('cabinet.dashboard') if can('cabinet') else url_for('predictions.history') %}
+<body class="{{ 'cabinet-shell' if private else 'public-shell' }} {{ 'home-page' if request.endpoint == 'main.index' else '' }}">
+<a class="skip-link" href="#content">Перейти к содержимому</a>
+<header class="portal-header">
+<a class="wordmark" href="{{ url_for('main.index') }}" aria-label="Racing Club — главная"><span class="brand-symbol" aria-hidden="true">↗</span> RACING<span>CLUB</span><i aria-hidden="true">®</i></a>
+<nav class="public-nav" id="public-nav" aria-label="Публичные разделы">
+{% for endpoint,label in [('main.index','Главная'),('competitions.future_list','Соревнования'),('horses.list_horses','Лошади'),('jockeys.list_jockeys','Жокеи'),('analytics.index','Рейтинги'),('predictions.index','Прогнозы')] %}
+<a href="{{ url_for(endpoint) }}" {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>{{ label }}</a>
+{% endfor %}
+<a class="mobile-account-link" href="{{ cabinet_url if current_user.is_authenticated else url_for('auth.login') }}">{{ 'Кабинет' if current_user.is_authenticated else 'Войти' }} ↗</a>
+{% if not current_user.is_authenticated %}<a class="mobile-account-link mobile-register-link" href="{{ url_for('auth.register') }}">Регистрация ↗</a>{% endif %}
+</nav>
+<div class="header-actions">
+<button type="button" class="theme-button" id="theme-toggle" aria-label="Переключить тему">◐</button>
+<a class="login-link" href="{{ cabinet_url if current_user.is_authenticated else url_for('auth.login') }}">{{ 'Кабинет' if current_user.is_authenticated else 'Войти' }} ↗</a>
+{% if not current_user.is_authenticated %}<a class="btn btn-primary register-link" href="{{ url_for('auth.register') }}">Регистрация ↗</a>{% endif %}
+<button type="button" class="public-menu-button btn" aria-controls="public-nav" aria-expanded="false" aria-label="Открыть навигацию">☰</button>
+</div>
+</header>
+{% if private %}
+<div class="menu-shade" hidden></div>
+<aside class="sidebar" id="sidebar" aria-label="Меню кабинета">
+<a class="cabinet-label" href="{{ cabinet_url }}">ЛИЧНОЕ ПРОСТРАНСТВО <span>{{ current_user.role if current_user.is_authenticated else 'ВХОД' }}</span></a>
+<nav>
+{% if can('manage_system') %}<a class="nav-link" href="{{ url_for('root.dashboard_root') }}">Обзор ROOT ↗</a><a class="nav-link" href="{{ url_for('root.users') }}">Пользователи и роли</a>{% endif %}
+{% if can('manage_competitions') %}<a class="nav-link" href="{{ url_for('admin.dashboard') }}">Обзор управления</a><a class="nav-link" href="{{ url_for('admin.competitions') }}">Соревнования</a><a class="nav-link" href="{{ url_for('admin.applications') }}">Заявки и допуск</a><a class="nav-link" href="{{ url_for('admin.audit') }}">Аудит</a>{% endif %}
+{% if can('cabinet') and current_user.role in ('OWNER','JOCKEY') %}<a class="nav-link" href="{{ url_for('cabinet.dashboard') }}">Мой спортивный кабинет</a><a class="nav-link" href="{{ url_for('cabinet.applications') }}">Заявки и приглашения</a>{% endif %}
+{% if current_user.is_authenticated %}<a class="nav-link" href="{{ url_for('predictions.history') }}">Мои прогнозы</a><a class="nav-link" href="{{ url_for('cabinet.notifications') }}">Уведомления · {{ unread_notifications }}</a><a class="nav-link" href="{{ url_for('auth.account') }}">Настройки аккаунта</a>{% else %}<a class="nav-link" href="{{ url_for('auth.login') }}">Войти</a><a class="nav-link" href="{{ url_for('auth.register') }}">Создать аккаунт</a>{% endif %}
+<a class="nav-link" href="{{ url_for('main.index') }}">На публичный сайт ↗</a>
+</nav>
+<div class="sidebar-note"><span class="live-dot"></span> Спорт объединяет.<small>Racing Club {{ config.VERSION }}</small></div>
+</aside>
+{% endif %}
+<div class="workspace">
+{% if private %}<div class="topbar"><div class="d-flex align-items-center gap-2"><button type="button" class="btn menu-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Открыть меню кабинета">☰</button><span class="eyebrow">RACING CLUB / КАБИНЕТ</span></div><div class="d-flex gap-2 align-items-center">{% if current_user.is_authenticated %}<span class="account-email">{{ current_user.email }}</span><form method="POST" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-secondary" type="submit">Выйти</button></form>{% endif %}</div></div>{% endif %}
+<main class="main-content" id="content" tabindex="-1">
+{% if request.endpoint != 'main.index' %}<div class="breadcrumbs"><a href="{{ url_for('main.index') }}">RACING CLUB</a><span>/</span><span>{{ 'Личное пространство' if private else 'Спортивный портал' }}</span></div>{% endif %}
+{% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert alert-{{ category }}" role="alert">{{ message }}</div>{% endfor %}
+{% block content %}{% endblock %}
+</main>
+<footer class="portal-footer">
+<div class="footer-main"><div><a class="wordmark" href="{{ url_for('main.index') }}">RACING<span>CLUB</span> ↗</a><p>Конный спорт. Люди. Результаты.</p></div><nav aria-label="Дополнительные разделы"><a href="{{ url_for('owners.list_owners') }}">Владельцы</a><a href="{{ url_for('competitions.future_list', view='calendar') }}">Календарь</a><a href="{{ url_for('competitions.past_list') }}">Результаты</a><a href="{{ url_for('analytics.index') }}">Статистика</a></nav></div>
+<div class="footer-bottom"><span>Racing Club · {{ config.VERSION }} · Бесплатная спортивная аналитика</span><span>Без денежных ставок и призов</span></div>
+<small class="photo-credit">Фото «Horse Race Finish Line»: <a href="https://commons.wikimedia.org/wiki/File:Horse_Race_Finish_Line_(11888565543).jpg">MJ Boswell</a> / <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>. Монохромное оформление и кадрирование.</small>
+</footer>
+</div>
+<script src="{{ url_for('static', filename='js/dynamic_rows.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body></html>

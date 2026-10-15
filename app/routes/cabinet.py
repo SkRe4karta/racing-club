@@ -58,7 +58,12 @@ def dashboard():
     upcoming = db.session.scalars(select(Competition).where(Competition.status == 'planned')
                                   .order_by(Competition.event_date, Competition.event_time)).all()
     upcoming = [item for item in upcoming if registration_open(item)]
+    from app.analytics import horse_card_data, sporting_summary
+    from app.admin_services import start_at
+    next_starts = [row for row in results if row.competition.status == 'planned' and start_at(row.competition) > utc_now()]
+    next_starts.sort(key=lambda row: start_at(row.competition))
     return render_template('cabinet/dashboard.html', horses=horses, results=results,
+                           horse_metrics=horse_card_data(horses, results), sport=sporting_summary(results), next_starts=next_starts,
                            applications=applications, notifications=notifications, upcoming=upcoming)
 
 

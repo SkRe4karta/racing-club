@@ -1,14 +1,15 @@
 """Authentication, shared database throttles and initial ROOT provisioning."""
 import hashlib
+import hmac
 import re
 import secrets
 import time
 
 import click
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
-from sqlalchemy import case, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import case, select, update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db
@@ -21,6 +22,13 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Войдите в аккаунт для продолжения.'
 login_manager.session_protection = 'strong'
 _DUMMY_HASH = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
+
+
+def credential_stamp(user):
+    """Bind signed sessions to credentials without exposing the password hash."""
+    key = current_app.secret_key
+    key = key.encode() if isinstance(key, str) else key
+    return hmac.new(key, user.password_hash.encode(), hashlib.sha256).hexdigest()
 
 
 def normalize_email(value):
@@ -40,7 +48,12 @@ def load_user(user_id):
         return None
     # populate_existing also observes a status/role change in a long-lived context.
     user = db.session.get(User, int(user_id), populate_existing=True)
-    return user if user and user.is_active else None
+    if not user or not user.is_active:
+        return None
+    stamp = session.get('credential_stamp', '')
+    if not isinstance(stamp, str) or not hmac.compare_digest(stamp, credential_stamp(user)):
+        return None
+    return user
 
 
 def consume_limit(scope, value, limit):
@@ -140,6 +153,7 @@ def login():
             return render_template('auth/login.html'), 400
         session.clear()
         login_user(user, remember=False, fresh=True)
+        session['credential_stamp'] = credential_stamp(user)
         # Non-permanent sessions retain Flask-Login's strong fingerprint checks.
         # Flask still validates the signed cookie's maximum age (8h by default).
         session.permanent = False
@@ -162,6 +176,50 @@ def logout():
 @login_required
 def account():
     return render_template('auth/account.html')
+
+
+@auth_bp.post('/account/password')
+@login_required
+def change_password():
+    """Change only the current account, then invalidate all its signed sessions."""
+    if not can('account'):
+        abort(403)
+    allowed = {'csrf_token', 'current_password', 'new_password', 'confirm_password'}
+    if set(request.form) - allowed or any(len(request.form.getlist(key)) != 1 for key in request.form):
+        abort(400)
+    if not consume_limit('password-user', str(current_user.id), current_app.config['LOGIN_LIMIT']):
+        return too_many()
+    old_hash = current_user.password_hash
+    current = request.form.get('current_password', '')
+    new = request.form.get('new_password', '')
+    confirmation = request.form.get('confirm_password', '')
+    error = None
+    if len(current) > 128 or not current_user.check_password(current):
+        error = 'Текущий пароль указан неверно.'
+    elif new != confirmation:
+        error = 'Повтор нового пароля не совпадает.'
+    elif new == current:
+        error = 'Новый пароль должен отличаться от текущего.'
+    if error:
+        flash(error, 'danger')
+        return render_template('auth/account.html'), 400
+    try:
+        credentials = User()
+        credentials.set_password(new)
+        changed = db.session.execute(update(User).where(User.id == current_user.id,
+            User.status == 'active', User.password_hash == old_hash)
+            .values(password_hash=credentials.password_hash).execution_options(synchronize_session=False))
+        if changed.rowcount != 1:
+            raise ValueError('Учётные данные изменились. Войдите заново перед сменой пароля.')
+        db.session.commit()
+    except (ValueError, SQLAlchemyError) as exc:
+        db.session.rollback()
+        flash(str(exc) if isinstance(exc, ValueError) else 'Не удалось сохранить пароль. Повторите позже.', 'danger')
+        return render_template('auth/account.html'), 400
+    logout_user()
+    session.clear()
+    flash('Пароль изменён. Все сеансы завершены. Войдите с новым паролем.', 'success')
+    return redirect(url_for('auth.login'))
 
 
 def setup_auth(app):

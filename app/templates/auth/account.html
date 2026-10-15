@@ -1,16 +1,51 @@
 {% extends 'base.html' %}
-{% block title %}Аккаунт — Racing Club{% endblock %}
+{% from 'components/ui.html' import icon %}
+{% block title %}Настройки аккаунта — Racing Club{% endblock %}
 {% block content %}
-<div class="page-heading"><div><h1>Ваш аккаунт</h1><p>Вы вошли в Racing Club.</p></div></div>
-<div class="card p-4 account-card">
-  {% if can('manage_system') %}<p><a class="btn btn-primary" href="{{ url_for('root.dashboard_root') }}">Системная панель ROOT</a></p>{% endif %}
-  {% if can('manage_competitions') %}<p><a class="btn btn-primary" href="{{ url_for('admin.dashboard') }}">Панель ADMIN</a></p>{% endif %}
-  <p>Email: {{ current_user.email }}</p>
-  <p>Роль: {{ current_user.role }}</p>
-  {% if current_user.owner %}<p><a href="{{ url_for('owners.detail_owner', owner_id=current_user.owner_id) }}">Ваш профиль владельца</a></p>{% endif %}
-  {% if current_user.jockey %}<p><a href="{{ url_for('jockeys.detail_jockey', jockey_id=current_user.jockey_id) }}">Ваш профиль жокея</a></p>{% endif %}
-  {% if can('cabinet') %}<p><a class="btn btn-primary" href="{{ url_for('cabinet.dashboard') }}">Личный кабинет</a></p>{% endif %}
-  <p><a href="{{ url_for('cabinet.notifications') }}">Уведомления · {{ unread_notifications }}</a></p>
-  <p>Регистрация: {{ current_user.registered_at.strftime('%d.%m.%Y') }}</p>
+{% set profile = current_user.owner if current_user.owner_id else current_user.jockey if current_user.jockey_id else none %}
+<div class="page-heading"><div><span class="eyebrow">ЛИЧНОЕ ПРОСТРАНСТВО / АККАУНТ</span><h1>Настройки аккаунта</h1><p>Личные данные, безопасность и оформление.</p></div></div>
+<div class="profile-summary panel">
+  <span class="profile-avatar" aria-hidden="true">{{ (profile.full_name if profile else current_user.email)[:1]|upper }}</span>
+  <div class="list-copy"><h2>{{ profile.full_name if profile else current_user.email }}</h2><p>{{ current_user.email }}</p></div>
+  <span class="badge badge-planned">{{ current_user.role }} · активен</span>
+</div>
+<div class="settings-grid">
+  <section class="panel settings-section">
+    <div class="section-heading"><h2>Личные данные</h2>{{ icon('users') }}</div>
+    <dl class="detail-list">
+      <div><dt>Email</dt><dd>{{ current_user.email }}</dd></div>
+      <div><dt>Роль</dt><dd>{{ current_user.role }}</dd></div>
+      <div><dt>Дата регистрации</dt><dd>{{ current_user.registered_at.strftime('%d.%m.%Y %H:%M') }} UTC</dd></div>
+      <div><dt>Последний вход</dt><dd>{{ current_user.last_login_at.strftime('%d.%m.%Y %H:%M') + ' UTC' if current_user.last_login_at else 'Ещё не зафиксирован' }}</dd></div>
+      <div><dt>Спортивный профиль</dt><dd>{% if profile %}<a href="{{ url_for('owners.detail_owner',owner_id=profile.id) if current_user.owner_id else url_for('jockeys.detail_jockey',jockey_id=profile.id) }}">{{ profile.full_name }} ↗</a>{% else %}Не привязан{% endif %}</dd></div>
+    </dl>
+    {% if profile and (can('manage_owner', profile) or can('manage_jockey', profile)) %}<a class="btn btn-outline-secondary" href="{{ url_for('cabinet.profile_edit',side='owner' if current_user.owner_id else 'jockey',profile_id=profile.id) }}">Редактировать профиль</a>{% endif %}
+    <p class="form-text">Email и роль меняются только через предусмотренные доверенные процедуры.</p>
+  </section>
+  <section class="panel settings-section" id="security">
+    <div class="section-heading"><h2>Безопасность</h2>{{ icon('shield') }}</div>
+    <h3>Смена пароля</h3><p class="text-muted">После изменения все сеансы будут завершены. Потребуется повторный вход.</p>
+    <form method="POST" action="{{ url_for('auth.change_password') }}" class="form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="current-password">Текущий пароль</label><input class="form-control" type="password" name="current_password" id="current-password" autocomplete="current-password" maxlength="128" required></div>
+      <div class="field"><label for="new-password">Новый пароль</label><input class="form-control" type="password" name="new_password" id="new-password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="password-policy" required><small class="form-text" id="password-policy">От 12 до 128 символов. Используйте уникальный пароль.</small></div>
+      <div class="field"><label for="confirm-password">Повтор нового пароля</label><input class="form-control" type="password" name="confirm_password" id="confirm-password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+      <button class="btn btn-primary" type="submit">Изменить пароль</button>
+    </form>
+  </section>
+  <section class="panel settings-section">
+    <div class="section-heading"><h2>Оформление</h2><span aria-hidden="true">◐</span></div>
+    <p class="text-muted">Тема применяется ко всем страницам и сохраняется в этом браузере.</p>
+    <div class="segmented-control theme-options" role="group" aria-label="Цветовая тема">
+      <button type="button" data-theme-choice="dark" aria-pressed="false">Тёмная</button>
+      <button type="button" data-theme-choice="light" aria-pressed="false">Светлая</button>
+    </div>
+    <p class="form-text" data-theme-status aria-live="polite"></p>
+    <noscript><p>Для переключения темы включите JavaScript. Смена пароля работает без JavaScript.</p></noscript>
+  </section>
+  <section class="panel settings-section">
+    <h2>Выход из аккаунта</h2><p class="text-muted">Завершите сеанс, если используете общий компьютер.</p>
+    <form method="POST" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-secondary" type="submit">Выйти из аккаунта ↗</button></form>
+  </section>
 </div>
 {% endblock %}

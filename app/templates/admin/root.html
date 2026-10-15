@@ -1,5 +1,1 @@
-{% extends 'base.html' %}
-{% block content %}
-<h1>Системная панель ROOT</h1><p>Полномочия ROOT отделены от личных согласий спортивных участников.</p>
-<div class="card p-4"><ul><li><a href="{{ url_for('root.users') }}">Пользователи, статусы, роли и привязка исторических профилей</a></li><li><a href="{{ url_for('owners.list_owners') }}">Владельцы и профили</a> · <a href="{{ url_for('owners.add_owner') }}">Добавить исторического владельца</a></li><li><a href="{{ url_for('jockeys.list_jockeys') }}">Жокеи и профили</a> · <a href="{{ url_for('jockeys.add_jockey') }}">Добавить исторического жокея</a></li><li><a href="{{ url_for('horses.list_horses') }}">Лошади</a> · <a href="{{ url_for('horses.add_horse') }}">Добавить лошадь</a></li><li><a href="{{ url_for('admin.dashboard') }}">Соревнования, заявки, допуск и результаты</a></li><li><a href="{{ url_for('admin.audit') }}">Полный журнал действий и история коррекций</a></li></ul></div>
-{% endblock %}
+{% extends 'admin/dashboard.html' %}

@@ -2,12 +2,12 @@
 {% block title %}Мои заявки — Racing Club{% endblock %}
 {% block content %}
 <div class="page-heading"><h1>Мои заявки</h1><a class="btn btn-primary" href="{{ url_for('cabinet.application_new') }}">Новая заявка</a></div>
-<p>Заявка допускается к старту только после решения администратора. В Alpha 2 доступно согласование пары.</p>
-<form method="GET" class="d-flex gap-2 flex-wrap my-3"><label for="status">Статус</label>
+<p>Заявка допускается к старту после личных согласий обеих сторон и решения администратора.</p>
+<form method="GET" class="filter-panel"><div class="field"><label for="status">Статус</label>
 <select id="status" name="status" class="form-select"><option value="">Все</option>
-{% for code, label in labels.items() %}<option value="{{ code }}" {% if request.args.get('status') == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+{% for code, label in labels.items() %}<option value="{{ code }}" {% if request.args.get('status') == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
 {% if request.args.get('horse_id') %}<input type="hidden" name="horse_id" value="{{ request.args.get('horse_id') }}">{% endif %}
-<button class="btn btn-outline-secondary" type="submit">Показать</button></form>
+<div class="filter-actions"><button class="btn btn-primary" type="submit">Показать</button><a class="btn btn-outline-secondary" href="{{ url_for('cabinet.applications') }}">Сбросить</a></div></form>
 {% set applications = pagination.items %}{% include 'cabinet/_application_table.html' %}
 {% include 'cabinet/_pagination.html' %}
 {% endblock %}

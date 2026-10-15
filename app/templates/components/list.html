@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% set config = {'owners':('Владельцы','Контакты владельцев и их лошади','owners.add_owner','Добавить владельца'), 'horses':('Лошади','Состав клуба, характеристики и история выступлений','horses.add_horse','Добавить лошадь'), 'jockeys':('Жокеи','Спортсмены клуба, рейтинг и результаты','jockeys.add_jockey','Добавить жокея'), 'future':('Будущие состязания','Календарь стартов и заявленные участники','competitions.future_add','Создать состязание'), 'past':('Прошедшие состязания','Архив заездов и итоговые протоколы','competitions.past_add','Добавить прошедшее')} %}
-{% set info = config[kind] %}
+{% set list_config = {'owners':('Владельцы','Контакты владельцев и их лошади','owners.add_owner','Добавить владельца'), 'horses':('Лошади','Состав клуба, характеристики и история выступлений','horses.add_horse','Добавить лошадь'), 'jockeys':('Жокеи','Спортсмены клуба, рейтинг и результаты','jockeys.add_jockey','Добавить жокея'), 'future':('Будущие состязания','Календарь стартов и заявленные участники','competitions.future_add','Создать состязание'), 'past':('Прошедшие состязания','Архив заездов и итоговые протоколы','competitions.past_add','Добавить прошедшее')} %}
+{% set info = list_config[kind] %}
 {% block title %}
   {{ info[0] }} — АИС «Скачки»
 {% endblock %}
@@ -33,11 +33,11 @@
     </div>
   </div>
   {% if kind == 'future' %}
-    <div class="tabs" aria-label="Представление">
-      <a class="btn {% if request.args.get('view') != 'calendar' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ query_url(view='list',page=1) }}">
+    <div class="segmented-control" aria-label="Представление">
+      <a {% if request.args.get('view') != 'calendar' %}aria-current="page"{% endif %} href="{{ query_url(view='list',page=1) }}">
         Список
       </a>
-      <a class="btn {% if request.args.get('view') == 'calendar' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ query_url(view='calendar',page=1) }}">
+      <a {% if request.args.get('view') == 'calendar' %}aria-current="page"{% endif %} href="{{ query_url(view='calendar',page=1) }}">
         Календарь
       </a>
     </div>

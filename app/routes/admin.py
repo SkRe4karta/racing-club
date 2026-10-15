@@ -1,7 +1,7 @@
 """Server-authorized ADMIN workspace and ROOT-only account administration."""
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import current_app, Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.orm import selectinload
 
 from app import db
@@ -11,6 +11,8 @@ from app.permissions import permission_required
 from app.routes.cabinet import reject_service_fields
 from app.routes.competitions import load_competition
 from app.web import contains
+from app.models import utc_now
+from zoneinfo import ZoneInfo
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 root_bp = Blueprint('root', __name__, url_prefix='/root')
@@ -21,19 +23,39 @@ def audit_query():
     return query if current_user.role == 'ROOT' else query.where(AuditLog.actor_id == current_user.id)
 
 
+def management_overview(system=False):
+    """Bounded, eager-loaded sections shared by the two management dashboards."""
+    pending = Application.status == 'pending_admin'
+    counts = {
+        'Зарегистрированные пользователи' if system else 'Предстоящие соревнования': db.session.scalar(
+            select(func.count()).select_from(User) if system else
+            select(func.count()).select_from(Competition).where(Competition.status == 'planned')),
+        'Соревнования': db.session.scalar(select(func.count()).select_from(Competition)),
+        'Заявки, ожидающие решения': db.session.scalar(select(func.count()).select_from(Application).where(pending)),
+        'Административные события' if system else 'Мои административные события': db.session.scalar(
+            select(func.count()).select_from(audit_query().order_by(None).subquery())),
+    }
+    now = utc_now().astimezone(ZoneInfo(current_app.config['CLUB_TIMEZONE']))
+    upcoming = db.session.scalars(select(Competition).where(Competition.status == 'planned',
+        or_(Competition.event_date > now.date(), and_(Competition.event_date == now.date(),
+            Competition.event_time > now.time().replace(tzinfo=None))))
+        .order_by(Competition.event_date, Competition.event_time).limit(6)).all()
+    waiting = db.session.scalars(select(Application).where(pending).options(
+        selectinload(Application.competition), selectinload(Application.horse),
+        selectinload(Application.jockey)).order_by(Application.created_at, Application.id).limit(4)).all()
+    return dict(counts=counts, upcoming=upcoming, waiting=waiting,
+                entries=db.session.scalars(audit_query().limit(5)).all(), system=system, audit_labels={
+                    'competition_created': 'Создано соревнование', 'competition_updated': 'Обновлены условия',
+                    'competition_completed': 'Опубликован протокол', 'protocol_corrected': 'Исправлен протокол',
+                    'application_approved': 'Участник допущен', 'application_rejected': 'Заявка отклонена',
+                    'user_updated': 'Обновлён аккаунт', 'profile_linked': 'Привязан исторический профиль',
+                })
+
+
 @admin_bp.get('/')
 @permission_required('manage_competitions')
 def dashboard():
-    counts = {
-        'Предстоящие соревнования': db.session.scalar(select(func.count()).select_from(Competition).where(Competition.status == 'planned')),
-        'Завершённые соревнования': db.session.scalar(select(func.count()).select_from(Competition).where(Competition.status == 'completed')),
-        'Ожидают решения': db.session.scalar(select(func.count()).select_from(Application).where(Application.status == 'pending_admin')),
-        'Подтверждённые участники будущих стартов': db.session.scalar(select(func.count()).select_from(Result).join(Result.competition).where(Competition.status == 'planned')),
-    }
-    upcoming = db.session.scalars(select(Competition).where(Competition.status == 'planned')
-                                  .order_by(Competition.event_date, Competition.event_time).limit(8)).all()
-    return render_template('admin/dashboard.html', counts=counts, upcoming=upcoming,
-                           entries=db.session.scalars(audit_query().limit(8)).all())
+    return render_template('admin/dashboard.html', **management_overview())
 
 
 @admin_bp.get('/competitions')
@@ -198,7 +220,18 @@ def audit():
 @root_bp.get('/')
 @permission_required('manage_system')
 def dashboard_root():
-    return render_template('admin/root.html')
+    return render_template('admin/dashboard.html', **management_overview(system=True))
+
+
+@root_bp.get('/profiles')
+@permission_required('manage_system')
+def historical_profiles():
+    """Historical profiles can only be linked through the existing verified workflow."""
+    side = 'jockey' if request.args.get('side') == 'jockey' else 'owner'
+    model, foreign_key = (Jockey, User.jockey_id) if side == 'jockey' else (Owner, User.owner_id)
+    query = select(model).where(~select(User.id).where(foreign_key == model.id).exists())
+    page = db.paginate(query.order_by(model.full_name, model.id), per_page=20, error_out=False)
+    return render_template('admin/profiles.html', pagination=page, side=side)
 
 
 @root_bp.get('/users')

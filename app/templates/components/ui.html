@@ -1,0 +1,26 @@
+{% macro section_heading(title, count=none, subtitle=none) -%}
+<div class="section-heading">
+  <div><h2>{{ title }}</h2>{% if subtitle %}<p class="text-muted">{{ subtitle }}</p>{% endif %}</div>
+  {% if count is not none %}<span class="count-badge" aria-label="Количество: {{ count }}">{{ count }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro icon(name) -%}
+{% set paths = {
+  'users': 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+  'calendar': 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2',
+  'check': 'm5 12 4 4L19 6',
+  'list': 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  'arrow': 'M7 17 17 7M7 7h10v10',
+  'shield': 'M12 3 3 7v6c0 5 9 9 9 9s9-4 9-9V7l-9-4M8 12l3 3 5-5'
+} %}
+<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ paths.get(name, paths.arrow) }}"/></svg>
+{%- endmacro %}
+
+{% macro quick_action(endpoint, title, description, symbol='arrow') -%}
+<a class="action-card" href="{{ url_for(endpoint) }}">
+  <span class="action-icon">{{ icon(symbol) }}</span>
+  <div><h3>{{ title }}</h3><p>{{ description }}</p></div>
+  <span class="action-arrow" aria-hidden="true">↗</span>
+</a>
+{%- endmacro %}

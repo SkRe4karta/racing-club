@@ -18,5 +18,9 @@ def index():
     recent_future = Competition.query.options(selectinload(Competition.results)).filter(Competition.status == 'planned', Competition.event_date >= date.today()).order_by(Competition.event_date, Competition.event_time).limit(5).all()
     overdue = Competition.query.filter(Competition.status == 'planned', Competition.event_date < date.today()).count()
     recent_past = Competition.query.options(selectinload(Competition.results)).filter_by(status='completed').order_by(Competition.event_date.desc(), Competition.event_time.desc()).limit(5).all()
-    leaders = db.session.query(Horse, db.func.count(Result.id).label('wins')).join(Result).join(Competition).filter(Competition.status == 'completed', Result.place == 1, Result.is_disqualified.is_(False)).group_by(Horse.id).order_by(db.func.count(Result.id).desc(), Horse.id).limit(3).all()
-    return render_template('index.html', stats=stats, recent_future=recent_future, recent_past=recent_past, overdue=overdue, leaders=leaders)
+    from app.analytics import rankings
+    leaders = db.session.execute(rankings(start=date(date.today().year, 1, 1)).limit(3)).all()
+    top_jockeys = db.session.execute(rankings('jockeys').limit(3)).all()
+    featured_horses = db.session.scalars(db.select(Horse).options(selectinload(Horse.owner)).order_by(Horse.id).limit(3)).all()
+    return render_template('index.html', stats=stats, recent_future=recent_future, recent_past=recent_past,
+                           overdue=overdue, leaders=leaders, top_jockeys=top_jockeys, featured_horses=featured_horses)
