@@ -15,6 +15,8 @@ Racing Club — русскоязычная информационная сист
 - `app/__init__.py`: фабрика и расширения; `app/models.py`: ORM и ограничения.
 - `app/auth.py`, `app/permissions.py`: аутентификация и единая политика доступа.
 - `app/services.py`: спортивные операции и транзакции; `app/web.py`: представление.
+- `app/application_services.py`: заявки Alpha 2, согласование и внутренние уведомления.
+  Новые заявки отделены от `results`; допуск администратора относится к Alpha 3.
 - `app/routes/`: blueprints; `app/templates/`, `app/static/`: интерфейс.
 - `migrations/`: история Alembic; `tests/`, `verify_*.py`: проверки.
 - `seed.py`: явное заполнение отдельной пустой демонстрационной БД.
