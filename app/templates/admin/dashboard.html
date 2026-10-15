@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Администрирование — Racing Club{% endblock %}
+{% block content %}
+<h1>Панель ADMIN</h1>
+<div class="row">{% for label, count in counts.items() %}<div class="col-md-6"><div class="card p-4 mb-3"><h2 class="h5">{{ label }}</h2><strong>{{ count }}</strong></div></div>{% endfor %}</div>
+<p class="d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="{{ url_for('admin.competitions') }}">Управление соревнованиями</a><a class="btn btn-success" href="{{ url_for('admin.competition_new') }}">Создать соревнование</a><a class="btn btn-outline-secondary" href="{{ url_for('admin.applications', status='pending_admin') }}">Заявки на допуск</a><a class="btn btn-outline-secondary" href="{{ url_for('admin.audit') }}">Журнал действий</a></p>
+<h2>Ближайшие старты</h2><ul>{% for comp in upcoming %}<li><a href="{{ url_for('admin.competition_detail', identifier=comp.id) }}">{{ comp.title }}</a> · {{ comp.formatted_date }} {{ comp.formatted_time }} · {{ comp.location }}</li>{% else %}<li>Предстоящих соревнований нет.</li>{% endfor %}</ul>
+<h2>Последние административные действия</h2>{% include 'admin/_audit.html' %}
+{% endblock %}

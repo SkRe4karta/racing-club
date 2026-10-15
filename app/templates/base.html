@@ -21,12 +21,15 @@
     {% if can('cabinet') %}
       {% set nav = nav + [('cabinet.dashboard','Личный кабинет','⌂'),('cabinet.applications','Заявки','▤')] %}
     {% endif %}
+    {% if can('manage_competitions') %}{% set nav = nav + [('admin.dashboard','Администрирование','⚙'),('admin.applications','Допуск заявок','▤'),('admin.audit','Журнал действий','▦')] %}{% endif %}
+    {% if can('manage_system') %}{% set nav = nav + [('root.dashboard_root','Системная панель','⚙')] %}{% endif %}
     {% if current_user.is_authenticated %}
       {% set nav = nav + [('cabinet.notifications','Уведомления','✉')] %}
     {% endif %}
     {% if request.blueprint == 'cabinet' %}
       {% set section = 'Уведомления' if 'notification' in request.endpoint else 'Заявки' if 'application' in request.endpoint else 'Личный кабинет' %}
     {% endif %}
+    {% if request.blueprint == 'admin' %}{% set section = 'Журнал действий' if request.endpoint == 'admin.audit' else 'Допуск заявок' if request.endpoint == 'admin.applications' else 'Администрирование' %}{% elif request.blueprint == 'root' %}{% set section = 'Системная панель' %}{% endif %}
     <div class="menu-shade" hidden>
     </div>
     <aside class="sidebar" id="sidebar" aria-label="Основное меню">

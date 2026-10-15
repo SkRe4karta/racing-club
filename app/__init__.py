@@ -26,7 +26,7 @@ def create_app(test_config=None):
         LOGIN_LIMIT=5,
         LOGIN_IP_LIMIT=30,
         REGISTER_LIMIT=10,
-        VERSION='2.0.0-alpha.2',
+        VERSION='2.0.0-alpha.3',
         CLUB_TIMEZONE='Europe/Moscow',
     )
 
@@ -77,6 +77,9 @@ def create_app(test_config=None):
     from app.routes.cabinet import cabinet_bp, setup_cabinet_context
     app.register_blueprint(cabinet_bp, url_prefix='/cabinet')
     setup_cabinet_context(app)
+    from app.routes.admin import admin_bp, root_bp
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(root_bp)
     app.register_blueprint(errors_bp)
 
     return app

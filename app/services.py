@@ -1,9 +1,5 @@
 import math
-from functools import wraps
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import update
 from app import db
-from app.models import Competition, Result, Horse, Jockey
 
 def parse_time_input(time_str: str) -> float:
     """
@@ -55,279 +51,35 @@ def participant_id(value):
     return identifier
 
 
-def create_future_competition(title: str, event_date_val, event_time_val, location: str, participants: list, registration_deadline=None):
-    """
-    Создает запланированное состязание с парами (лошадь, жокей).
-    participants: list of dicts [{'horse_id': int, 'jockey_id': int}, ...]
-    """
-    if not title or not title.strip():
-        raise ValueError("Наименование состязания обязательно")
-    if not location or not location.strip():
-        raise ValueError("Место проведения (ипподром) обязательно")
-    if not event_date_val:
-        raise ValueError("Дата состязания обязательна")
-    if not event_time_val:
-        raise ValueError("Время состязания обязательно")
-    if not participants or len(participants) < 1:
-        raise ValueError("Необходимо заявить хотя бы одного участника")
-
-    # Проверка уникальности лошадей и жокеев в списке
-    horse_ids = set()
-    jockey_ids = set()
-    
-    for p in participants:
-        h_id = p.get('horse_id')
-        j_id = p.get('jockey_id')
-
-        if not h_id:
-            raise ValueError("Для каждого участника необходимо выбрать лошадь")
-        if not j_id:
-            raise ValueError("Для выбранной лошади необходимо указать жокея")
-
-        h_id = participant_id(h_id)
-        j_id = participant_id(j_id)
-
-        if h_id in horse_ids:
-            horse = db.session.get(Horse, h_id)
-            name = horse.nickname if horse else f"ID {h_id}"
-            raise ValueError(f"Лошадь «{name}» уже заявлена на это состязание")
-        if j_id in jockey_ids:
-            jockey = db.session.get(Jockey, j_id)
-            name = jockey.full_name if jockey else f"ID {j_id}"
-            raise ValueError(f"Жокей «{name}» уже заявлен на это состязание")
-
-        if not db.session.get(Horse, h_id) or not db.session.get(Jockey, j_id):
-            raise ValueError("Выбрана несуществующая лошадь или жокей")
-
-        horse_ids.add(h_id)
-        jockey_ids.add(j_id)
-
-    competition = Competition(
-        title=title.strip(),
-        event_date=event_date_val,
-        event_time=event_time_val,
-        location=location.strip(),
-        status='planned'
-    )
+def create_future_competition(title, event_date_val, event_time_val, location,
+                              participants=None, registration_deadline=None, *,
+                              distance=1600, max_participants=20, actor=None):
+    """Compatibility entrypoint: create only an empty, validated competition."""
+    from app.admin_services import save_competition
+    from flask_login import current_user
+    if not event_date_val or not event_time_val:
+        raise ValueError('Укажите дату и время соревнования.')
+    if participants:
+        raise ValueError('Создайте соревнование без участников. Используйте заявки и административный допуск.')
     if registration_deadline is not None:
-        from app.application_services import as_utc, registration_closes
-        if as_utc(registration_deadline) > registration_closes(competition):
-            raise ValueError('Срок регистрации не может быть позже начала соревнования.')
-        competition.registration_deadline = as_utc(registration_deadline)
-    db.session.add(competition)
-    db.session.flush()
-
-    for p in participants:
-        res = Result(
-            competition_id=competition.id,
-            horse_id=int(p['horse_id']),
-            jockey_id=int(p['jockey_id']),
-            finish_time_seconds=None,
-            is_disqualified=False,
-            place=None
-        )
-        db.session.add(res)
-
-    db.session.commit()
-    return competition
+        from app.application_services import as_utc
+        from flask import current_app
+        from zoneinfo import ZoneInfo
+        registration_deadline = as_utc(registration_deadline).astimezone(ZoneInfo(current_app.config['CLUB_TIMEZONE']))
+    data = dict(title=title, location=location, event_date=event_date_val.isoformat(),
+                event_time=event_time_val.strftime('%H:%M'), distance=distance,
+                max_participants=max_participants,
+                registration_deadline=registration_deadline.strftime('%Y-%m-%dT%H:%M') if registration_deadline else '')
+    return save_competition(actor if actor is not None else current_user, data)
 
 
-def complete_planned_competition(competition_id: int, results_data: dict):
-    """
-    Завершает ранее запланированное состязание.
-    results_data: словарь {result_id: {'time_str': str, 'is_disqualified': bool}}
-    """
-    competition = db.session.execute(db.select(Competition).where(Competition.id == competition_id).with_for_update().execution_options(populate_existing=True)).scalar_one_or_none()
-    if not competition:
-        raise ValueError("Состязание не найдено")
-    
-    if competition.status != 'planned':
-        raise ValueError("Результаты завершенного состязания изменять нельзя")
-
-    results = Result.query.filter_by(competition_id=competition.id).all()
-    if not results:
-        raise ValueError("У данного состязания отсутствуют участники")
-
-    # Валидация: каждый участник должен иметь либо время, либо дисквалификацию
-    prepared_results = []
-    for r in results:
-        data = results_data.get(r.id) or results_data.get(str(r.id))
-        if not data:
-            raise ValueError("Для каждого участника необходимо указать время или дисквалификацию")
-
-        is_disq = bool(data.get('is_disqualified', False))
-        time_str = data.get('time_str', '').strip()
-
-        if not is_disq and not time_str:
-            raise ValueError("Для каждого участника необходимо указать время или дисквалификацию")
-
-        if is_disq and time_str:
-            raise ValueError("Нельзя одновременно указать время и дисквалификацию")
-
-        parsed_time = None
-        if not is_disq:
-            parsed_time = parse_time_input(time_str)
-
-        prepared_results.append({
-            'result_obj': r,
-            'is_disqualified': is_disq,
-            'time_seconds': parsed_time
-        })
-
-    # Расчет мест
-    # Сортируем недисквалифицированных по возрастанию времени
-    non_disqualified = [pr for pr in prepared_results if not pr['is_disqualified']]
-    non_disqualified.sort(key=lambda x: x['time_seconds'])
-
-    current_place = 1
-    for i, pr in enumerate(non_disqualified):
-        # Присваиваем места 1, 2, 3...
-        # Если время совпадает с предыдущим, делят место или последовательно
-        if i > 0 and pr['time_seconds'] == non_disqualified[i - 1]['time_seconds']:
-            pr['place'] = non_disqualified[i - 1]['place']
-        else:
-            pr['place'] = current_place
-        current_place += 1
-
-    # Compare-and-set защищает от двух одновременных завершений и в SQLite,
-    # где SELECT FOR UPDATE не поддерживается. Обновление входит в общую транзакцию.
-    changed = db.session.execute(
-        update(Competition).where(
-            Competition.id == competition.id, Competition.status == 'planned'
-        ).values(status='completed').execution_options(synchronize_session=False)
-    )
-    if changed.rowcount != 1:
-        raise ValueError("Результаты завершенного состязания изменять нельзя")
-
-    # Записываем в базу
-    for pr in prepared_results:
-        r = pr['result_obj']
-        r.is_disqualified = pr['is_disqualified']
-        r.finish_time_seconds = pr['time_seconds']
-        r.place = pr.get('place', None)
-
-    competition.status = 'completed'
-    db.session.commit()
-    return competition
+def complete_planned_competition(competition_id, results_data, *, actor=None):
+    """Publish the complete protocol through the single administrative workflow."""
+    from app.admin_services import publish_protocol
+    from flask_login import current_user
+    return publish_protocol(actor if actor is not None else current_user, competition_id, results_data)
 
 
-def create_completed_competition_direct(title: str, event_date_val, event_time_val, location: str, participants: list):
-    """
-    Создает прошедшее состязание «в один проход» сразу со статусом completed.
-    participants: list of dicts [{'horse_id': int, 'jockey_id': int, 'time_str': str, 'is_disqualified': bool}]
-    """
-    if not title or not title.strip():
-        raise ValueError("Наименование состязания обязательно")
-    if not location or not location.strip():
-        raise ValueError("Место проведения (ипподром) обязательно")
-    if not event_date_val:
-        raise ValueError("Дата состязания обязательна")
-    if not event_time_val:
-        raise ValueError("Время состязания обязательно")
-    if not participants or len(participants) < 1:
-        raise ValueError("Необходимо заявить хотя бы одного участника")
-
-    horse_ids = set()
-    jockey_ids = set()
-    prepared = []
-
-    for p in participants:
-        h_id = p.get('horse_id')
-        j_id = p.get('jockey_id')
-
-        if not h_id:
-            raise ValueError("Для каждого участника необходимо выбрать лошадь")
-        if not j_id:
-            raise ValueError("Для выбранной лошади необходимо указать жокея")
-
-        h_id = participant_id(h_id)
-        j_id = participant_id(j_id)
-
-        if h_id in horse_ids:
-            horse = db.session.get(Horse, h_id)
-            name = horse.nickname if horse else f"ID {h_id}"
-            raise ValueError(f"Лошадь «{name}» уже заявлена на это состязание")
-        if j_id in jockey_ids:
-            jockey = db.session.get(Jockey, j_id)
-            name = jockey.full_name if jockey else f"ID {j_id}"
-            raise ValueError(f"Жокей «{name}» уже заявлен на это состязание")
-
-        if not db.session.get(Horse, h_id) or not db.session.get(Jockey, j_id):
-            raise ValueError("Выбрана несуществующая лошадь или жокей")
-
-        horse_ids.add(h_id)
-        jockey_ids.add(j_id)
-
-        is_disq = bool(p.get('is_disqualified', False))
-        time_str = p.get('time_str', '').strip()
-
-        if not is_disq and not time_str:
-            raise ValueError("Для каждого участника необходимо указать время или дисквалификацию")
-
-        if is_disq and time_str:
-            raise ValueError("Нельзя одновременно указать время и дисквалификацию")
-
-        parsed_time = None
-        if not is_disq:
-            parsed_time = parse_time_input(time_str)
-
-        prepared.append({
-            'horse_id': h_id,
-            'jockey_id': j_id,
-            'is_disqualified': is_disq,
-            'time_seconds': parsed_time
-        })
-
-    # Расчет мест
-    non_disqualified = [item for item in prepared if not item['is_disqualified']]
-    non_disqualified.sort(key=lambda x: x['time_seconds'])
-
-    current_place = 1
-    for i, item in enumerate(non_disqualified):
-        if i > 0 and item['time_seconds'] == non_disqualified[i - 1]['time_seconds']:
-            item['place'] = non_disqualified[i - 1]['place']
-        else:
-            item['place'] = current_place
-        current_place += 1
-
-    competition = Competition(
-        title=title.strip(),
-        event_date=event_date_val,
-        event_time=event_time_val,
-        location=location.strip(),
-        status='completed'
-    )
-    db.session.add(competition)
-    db.session.flush()
-
-    for item in prepared:
-        res = Result(
-            competition_id=competition.id,
-            horse_id=item['horse_id'],
-            jockey_id=item['jockey_id'],
-            finish_time_seconds=item['time_seconds'],
-            is_disqualified=item['is_disqualified'],
-            place=item.get('place', None)
-        )
-        db.session.add(res)
-
-    db.session.commit()
-    return competition
-
-
-def atomic(operation):
-    @wraps(operation)
-    def wrapped(*args, **kwargs):
-        try:
-            return operation(*args, **kwargs)
-        except SQLAlchemyError as exc:
-            db.session.rollback()
-            raise ValueError("Не удалось сохранить состязание. Проверьте участников и повторите попытку.") from exc
-        except Exception:
-            db.session.rollback()
-            raise
-    return wrapped
-
-create_future_competition = atomic(create_future_competition)
-complete_planned_competition = atomic(complete_planned_competition)
-create_completed_competition_direct = atomic(create_completed_competition_direct)
+def create_completed_competition_direct(*args, **kwargs):
+    """Legacy write bypass retired; historical records remain readable."""
+    raise ValueError('Прямое создание завершённого протокола закрыто. Создайте соревнование, допустите участников и опубликуйте результаты.')

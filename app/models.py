@@ -121,6 +121,13 @@ class Competition(db.Model):
     status = db.Column(db.String(20), nullable=False, default='planned')  # 'planned' или 'completed'
 
     registration_deadline = db.Column(db.DateTime(timezone=True))
+    distance = db.Column(db.Integer)
+    max_participants = db.Column(db.Integer)
+    revision = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    __table_args__ = (
+        CheckConstraint('distance IS NULL OR distance BETWEEN 100 AND 100000', name='ck_competitions_distance'),
+        CheckConstraint('max_participants IS NULL OR max_participants BETWEEN 1 AND 1000', name='ck_competitions_capacity'),
+    )
 
     results = db.relationship('Result', back_populates='competition', cascade='all, delete-orphan', lazy=True)
 
@@ -152,11 +159,19 @@ class Result(db.Model):
     horse_id = db.Column(db.Integer, db.ForeignKey('horses.id'), nullable=False)
     jockey_id = db.Column(db.Integer, db.ForeignKey('jockeys.id'), nullable=False)
     
+    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete='RESTRICT'))
+    start_number = db.Column(db.Integer)
+    did_not_finish = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    application = db.relationship('Application')
     finish_time_seconds = db.Column(db.Float, nullable=True)
     is_disqualified = db.Column(db.Boolean, nullable=False, default=False)
     place = db.Column(db.Integer, nullable=True)
 
     __table_args__ = (
+        UniqueConstraint('application_id', name='uq_results_application'),
+        UniqueConstraint('competition_id', 'start_number', name='uq_results_start_number'),
+        CheckConstraint('start_number IS NULL OR start_number > 0', name='ck_results_start_number'),
+        CheckConstraint('NOT (did_not_finish AND is_disqualified)', name='ck_results_outcome'),
         UniqueConstraint('competition_id', 'horse_id', name='uq_competition_horse'),
         UniqueConstraint('competition_id', 'jockey_id', name='uq_competition_jockey'),
     )
@@ -169,6 +184,8 @@ class Result(db.Model):
     def formatted_finish_time(self):
         if self.is_disqualified:
             return "Дисквалификация"
+        if self.did_not_finish:
+            return "Не финишировал (DNF)"
         if self.finish_time_seconds is None:
             return "—"
         total_seconds = float(self.finish_time_seconds)
@@ -196,7 +213,7 @@ ACTIVE_APPLICATION_SQL = "status IN ('awaiting_owner', 'awaiting_jockey', 'pendi
 class Application(db.Model):
     """Immutable pair: change it by cancelling and submitting a new application.
 
-    Both consents imply pending_admin; Alpha 2 never adds a Result or admits a pair.
+    Both consents imply pending_admin; administrative admission creates one Result.
     Frozen recipient accounts prevent historical profiles implying consent.
     """
 
@@ -236,6 +253,14 @@ class Application(db.Model):
         Index('ix_applications_jockey_created', 'jockey_user_id', 'created_at'),
     )
 
+    def personal_consent(self, side):
+        """Old ROOT timestamps are evidence of intervention, not personal consent."""
+        account_id = self.owner_user_id if side == 'owner' else self.jockey_user_id
+        stamp = self.owner_confirmed_at if side == 'owner' else self.jockey_confirmed_at
+        action = 'created' if side == self.initiator_side else 'confirmed'
+        return stamp is not None and any(event.action == action and event.actor_id == account_id
+                                         for event in self.events)
+
     @property
     def status_label(self):
         return APPLICATION_LABELS[self.status]
@@ -265,13 +290,35 @@ class Notification(db.Model):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
-    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete='RESTRICT'), nullable=False)
-    event_id = db.Column(db.Integer, db.ForeignKey('application_events.id', ondelete='RESTRICT'), nullable=False)
+    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete='RESTRICT'))
+    event_id = db.Column(db.Integer, db.ForeignKey('application_events.id', ondelete='RESTRICT'))
+    audit_id = db.Column(db.Integer, db.ForeignKey('audit_logs.id', ondelete='RESTRICT'))
+    competition_id = db.Column(db.Integer, db.ForeignKey('competitions.id', ondelete='RESTRICT'))
     message = db.Column(db.String(300), nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     read_at = db.Column(db.DateTime(timezone=True))
     application = db.relationship('Application')
+    competition = db.relationship('Competition')
     __table_args__ = (
         UniqueConstraint('user_id', 'event_id', name='uq_notifications_recipient_event'),
+        UniqueConstraint('user_id', 'audit_id', name='uq_notifications_recipient_audit'),
+        CheckConstraint('(event_id IS NOT NULL AND application_id IS NOT NULL AND audit_id IS NULL) OR (event_id IS NULL AND audit_id IS NOT NULL)', name='ck_notifications_source'),
         Index('ix_notifications_user_read', 'user_id', 'read_at', 'id'),
     )
+
+
+class AuditLog(db.Model):
+    """Append-only administrative history. Writers use explicit safe field allowlists."""
+
+    __tablename__ = 'audit_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False, index=True)
+    action = db.Column(db.String(48), nullable=False)
+    object_type = db.Column(db.String(32), nullable=False)
+    object_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    reason = db.Column(db.String(500))
+    old_values = db.Column(db.JSON)
+    new_values = db.Column(db.JSON)
+    actor = db.relationship('User')
+    __table_args__ = (Index('ix_audit_logs_object', 'object_type', 'object_id', 'id'),)

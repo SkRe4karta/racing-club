@@ -238,21 +238,21 @@ class AuthenticationTests(unittest.TestCase):
         for path in ['/owners/add', '/horses/add', '/jockeys/add', '/competitions/complete']:
             self.assertEqual(self.post(path, token_path='/auth/account').status_code, 403)
 
-    def test_admin_creates_competition_but_cannot_manage_profiles(self):
+    def test_admin_creates_empty_competition_but_cannot_manage_profiles(self):
         self.login(self.user('ADMIN'))
         data = dict(title='Административный старт', event_date='2027-02-01', event_time='14:00', location='Москва',
-                    **{'horse_id[]': str(self.legacy_horse_id), 'jockey_id[]': str(self.legacy_jockey_id)})
+                    distance='1600', max_participants='20')
         self.assertEqual(self.post('/competitions/future/add', data, '/competitions/future/add').status_code, 302)
         for path in ['/owners/add', '/jockeys/add', '/horses/add']:
             self.assertEqual(self.post(path, token_path='/auth/account').status_code, 403)
         with self.app.app_context():
             competition = db.session.scalar(select(Competition).where(Competition.title == data['title']))
             competition_id = competition.id
-            result_id = competition.results[0].id
+            self.assertEqual(competition.results, [])
         path = f'/competitions/complete/{competition_id}'
-        self.assertEqual(self.post(path, {f'time_{result_id}': '120.5'}, path).status_code, 302)
+        self.assertEqual(self.post(path, {}, path).status_code, 400)
         with self.app.app_context():
-            self.assertEqual(db.session.get(Competition, competition_id).status, 'completed')
+            self.assertEqual(db.session.get(Competition, competition_id).status, 'planned')
 
     def test_root_has_all_existing_write_permissions(self):
         self.login(self.user('ROOT'))

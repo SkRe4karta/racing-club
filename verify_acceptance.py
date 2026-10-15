@@ -1,9 +1,9 @@
 import unittest
 import secrets
-from datetime import date, time
+from datetime import date, time, timedelta
 from app import create_app, db
 from app.models import Owner, Horse, Jockey, Competition, Result, User
-from tests.support import isolated_database
+from tests.support import isolated_database, legacy_competition, legacy_completed
 from app.services import (
     create_future_competition,
     complete_planned_competition,
@@ -45,6 +45,7 @@ class VerificationTestCase(unittest.TestCase):
         password = secrets.token_urlsafe(24)
         root = User(email='regression@example.test', role='ROOT', status='active')
         root.set_password(password)
+        self.actor = root
         db.session.add(root)
         db.session.commit()
         response = self.client.post('/auth/login', data={'email': root.email, 'password': password})
@@ -101,10 +102,10 @@ class VerificationTestCase(unittest.TestCase):
         self.assertIn('Николаев Н.Н.'.encode('utf-8'), card_res.data)
 
     def test_4_future_competition_creation_and_listing(self):
-        # 4. Создание будущего состязания с заявленными парами
-        comp = create_future_competition(
+        # 4. Сохранённый исторический стартовый список доступен в planned
+        comp = legacy_competition(
             title="Тестовый Заезд",
-            event_date_val=date(2026, 11, 1),
+            event_date_val=date.today() + timedelta(days=10),
             event_time_val=time(14, 0),
             location="Тестовый Ипподром",
             participants=[
@@ -124,9 +125,9 @@ class VerificationTestCase(unittest.TestCase):
 
     def test_5_and_6_complete_competition_and_calculate_places(self):
         # 5 и 6. Завершение состязания, автоматический расчет мест по времени и отсутствие места у дисквалифицированного
-        comp = create_future_competition(
+        comp = legacy_competition(
             title="Кубок Осени",
-            event_date_val=date(2026, 11, 1),
+            event_date_val=date.today() - timedelta(days=1),
             event_time_val=time(14, 0),
             location="Тестовый Ипподром",
             participants=[
@@ -149,7 +150,7 @@ class VerificationTestCase(unittest.TestCase):
             r3.id: {'time_str': '', 'is_disqualified': True},
         }
 
-        completed_comp = complete_planned_competition(comp.id, results_data)
+        completed_comp = complete_planned_competition(comp.id, results_data, actor=self.actor)
         self.assertEqual(completed_comp.status, 'completed')
 
         db.session.refresh(r1)
@@ -163,24 +164,24 @@ class VerificationTestCase(unittest.TestCase):
 
     def test_7_no_edit_after_complete(self):
         # 7. Запрет повторного изменения результатов завершенного состязания
-        comp = create_future_competition(
+        comp = legacy_competition(
             title="Заезд Финал",
-            event_date_val=date(2026, 11, 1),
+            event_date_val=date.today() - timedelta(days=1),
             event_time_val=time(14, 0),
             location="Ипподром",
             participants=[{'horse_id': self.horse1.id, 'jockey_id': self.jockey1.id}]
         )
         r = Result.query.filter_by(competition_id=comp.id).first()
-        complete_planned_competition(comp.id, {r.id: {'time_str': '120.0', 'is_disqualified': False}})
+        complete_planned_competition(comp.id, {r.id: {'time_str': '120.0', 'is_disqualified': False}}, actor=self.actor)
 
         # Попытка снова завершить / изменить
         with self.assertRaises(ValueError) as ctx:
-            complete_planned_competition(comp.id, {r.id: {'time_str': '115.0', 'is_disqualified': False}})
+            complete_planned_competition(comp.id, {r.id: {'time_str': '115.0', 'is_disqualified': False}}, actor=self.actor)
         self.assertIn("Результаты завершенного состязания изменять нельзя", str(ctx.exception))
 
     def test_8_add_past_competition_direct(self):
-        # 8. Добавление уже прошедшего состязания сразу с участниками и результатами
-        comp = create_completed_competition_direct(
+        # 8. Чтение исторического протокола с участниками и результатами
+        comp = legacy_completed(
             title="Исторический Заезд",
             event_date_val=date(2026, 6, 1),
             event_time_val=time(15, 0),
@@ -197,7 +198,7 @@ class VerificationTestCase(unittest.TestCase):
 
     def test_9_horse_and_jockey_history(self):
         # 9. Отображение истории состязаний выбранного жокея и лошади
-        comp = create_completed_competition_direct(
+        comp = legacy_completed(
             title="Гран-При",
             event_date_val=date(2026, 7, 1),
             event_time_val=time(16, 0),
@@ -237,7 +238,7 @@ class VerificationTestCase(unittest.TestCase):
                     {'horse_id': self.horse1.id, 'jockey_id': self.jockey2.id},
                 ]
             )
-        self.assertIn("уже заявлена на это состязание", str(ctx.exception))
+        self.assertIn("без участников", str(ctx.exception))
 
 if __name__ == '__main__':
     unittest.main()

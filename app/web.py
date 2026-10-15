@@ -139,7 +139,7 @@ def setup_web(app):
         def performance(results):
             finished = sorted([r for r in results if r.competition.is_completed], key=lambda r:(r.competition.event_date, r.competition.event_time), reverse=True)
             wins = sum(r.place == 1 and not r.is_disqualified for r in finished)
-            return dict(count=len(finished), wins=wins, podium=sum(r.place in (1,2,3) and not r.is_disqualified for r in finished), rate=round(wins / len(finished)*100,1) if finished else None, last=finished[0] if finished else None)
+            return dict(count=len(finished), wins=wins, seconds=sum(r.place == 2 and not r.is_disqualified for r in finished), thirds=sum(r.place == 3 and not r.is_disqualified for r in finished), disqualifications=sum(r.is_disqualified for r in finished), dnf=sum(r.did_not_finish for r in finished), podium=sum(r.place in (1,2,3) and not r.is_disqualified for r in finished), rate=round(wins / len(finished)*100,1) if finished else None, last=finished[0] if finished else None)
         return dict(today=date.today(), query_url=query_url, performance=performance)
 
     @app.get('/health')
@@ -151,4 +151,4 @@ def setup_web(app):
     def export_results(comp_id):
         comp = db.get_or_404(Competition, comp_id)
         rows = sorted(comp.results, key=lambda r:(r.place is None, r.place or 0, r.id))
-        return csv_response(['Место','Лошадь','Жокей','Время','Статус'], [(r.place,r.horse.nickname,r.jockey.full_name,r.formatted_finish_time,'Дисквалификация' if r.is_disqualified else 'Завершено' if comp.is_completed else 'Заявлен') for r in rows], f'results-{comp.id}')
+        return csv_response(['Место','Лошадь','Жокей','Время','Статус'], [(r.place,r.horse.nickname,r.jockey.full_name,r.formatted_finish_time,'Дисквалификация' if r.is_disqualified else 'Не финишировал (DNF)' if r.did_not_finish else 'Завершено' if comp.is_completed else 'Заявлен') for r in rows], f'results-{comp.id}')

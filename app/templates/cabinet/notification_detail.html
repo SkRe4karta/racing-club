@@ -3,7 +3,8 @@
 {% block content %}
 <h1>Уведомление</h1><div class="card p-4">
 <p>{{ notification.message }}</p><p>{{ notification.created_at.strftime('%d.%m.%Y %H:%M') }} UTC · {{ 'Прочитано' if notification.read_at else 'Новое' }}</p>
-<p><a href="{{ url_for('cabinet.application_detail', application_id=notification.application_id) }}">К заявке № {{ notification.application_id }}</a></p>
+{% if notification.application_id %}<p><a href="{{ url_for('cabinet.application_detail', application_id=notification.application_id) }}">К заявке № {{ notification.application_id }}</a></p>
+{% elif notification.competition_id %}<p><a href="{{ url_for('competitions.past_detail' if notification.competition.is_completed else 'competitions.future_detail', comp_id=notification.competition_id) }}">К соревнованию</a></p>{% endif %}
 {% if not notification.read_at %}<form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary" type="submit">Отметить прочитанным</button></form>{% endif %}
 </div><a class="btn btn-outline-secondary my-3" href="{{ url_for('cabinet.notifications') }}">Все уведомления</a>
 {% endblock %}

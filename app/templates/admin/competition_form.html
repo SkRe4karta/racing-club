@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ 'Изменение соревнования' if competition else 'Новое соревнование без участников' }}</h1>
+<p>Время клуба — Europe/Moscow. Участники допускаются отдельно после личного согласия владельца и жокея.</p>
+<form method="POST" class="card p-4"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for name,label,kind,default in [('title','Название','text',''),('event_date','Дата','date',''),('event_time','Время','time',''),('location','Место проведения','text',''),('distance','Дистанция, м','number',1600),('max_participants','Максимум участников','number',20),('registration_deadline','Окончание регистрации (необязательно)','datetime-local','')] %}
+<div class="mb-3"><label class="form-label" for="{{ name }}">{{ label }}</label><input class="form-control" type="{{ kind }}" name="{{ name }}" id="{{ name }}" value="{{ data.get(name) or default }}" {% if name != 'registration_deadline' %}required{% endif %} {% if name == 'title' or name == 'location' %}maxlength="200"{% elif name == 'distance' %}min="100" max="100000"{% elif name == 'max_participants' %}min="1" max="1000"{% endif %}></div>
+{% endfor %}<button type="submit" class="btn btn-success">Сохранить соревнование</button></form>
+{% endblock %}

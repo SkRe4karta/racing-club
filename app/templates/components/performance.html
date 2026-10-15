@@ -32,6 +32,7 @@
       {{ metric.rate|string + '%' if metric.rate is not none else '—' }}
     </strong>
   </div>
+  {% for label, value in [('Вторых мест', metric.seconds), ('Третьих мест', metric.thirds), ('Дисквалификаций', metric.disqualifications), ('Без финиша (DNF)', metric.dnf)] %}<div class="stat-card"><span>{{ label }}</span><strong>{{ value }}</strong></div>{% endfor %}
 </div>
 {% if metric.last %}
   <p class="small text-muted">

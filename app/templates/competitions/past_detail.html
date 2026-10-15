@@ -82,7 +82,7 @@
                 </td>
                 <td>
                   <span class="badge {{ 'badge-disqualified' if r.is_disqualified else 'badge-completed' }}">
-                    {{ 'Дисквалификация' if r.is_disqualified else 'Финишировал' }}
+                    {{ 'Дисквалификация' if r.is_disqualified else 'Не финишировал (DNF)' if r.did_not_finish else 'Финишировал' }}
                   </span>
                 </td>
               </tr>
@@ -96,6 +96,7 @@
       </div>
     {% endif %}
   </div>
+  {% if can('manage_system') %}<p><a class="btn btn-outline-secondary" href="{{ url_for('admin.correct', identifier=competition.id) }}">Коррекция ROOT с сохранением истории</a></p>{% endif %}
   <p class="small text-muted mt-3">
     Результаты зафиксированы. Изменение завершённого состязания недоступно.
   </p>

@@ -51,10 +51,8 @@ def registration_open(competition):
 
 
 def locked_competition(identifier):
-    competition = db.session.scalar(select(Competition).where(
-        Competition.id == participant_id(identifier)).with_for_update().execution_options(populate_existing=True))
-    if not competition:
-        raise ValueError('Соревнование не найдено.')
+    from app.admin_services import lock_competition
+    competition = lock_competition(identifier)
     if not registration_open(competition):
         raise ApplicationConflict('Регистрация закрыта или соревнование завершено.')
     return competition
@@ -77,7 +75,7 @@ def notify(application, event, recipients, message):
 def active_account(profile_id, side):
     column = User.owner_id if side == 'owner' else User.jockey_id
     user = db.session.scalar(select(User).where(column == profile_id,
-                             User.role == side.upper(), User.status == 'active'))
+                             User.role == side.upper(), User.status == 'active').with_for_update().execution_options(populate_existing=True))
     if not user:
         raise ValueError('У выбранного владельца или жокея нет активного связанного аккаунта. Согласие получить невозможно.')
     return user
@@ -88,7 +86,9 @@ def create_application(actor, competition_id, horse_id, jockey_id=None, side=Non
     """The initiator consents once; only the other party can consent subsequently."""
     if not can('create_application', user=actor):
         raise PermissionError
-    side = side if actor.role == 'ROOT' else actor.role.lower()
+    if side is not None:
+        raise ValueError('Сторону согласия определяет аккаунт участника.')
+    side = actor.role.lower()
     if side not in ('owner', 'jockey'):
         raise ValueError('Выберите сторону подачи заявки.')
     competition = locked_competition(competition_id)
@@ -131,6 +131,8 @@ def create_application(actor, competition_id, horse_id, jockey_id=None, side=Non
 @workflow
 def decide_application(actor, application_id, action):
     """Lock competition before application, then compare-and-set for SQLite too."""
+    if actor.role not in ('OWNER', 'JOCKEY'):
+        raise PermissionError
     application_id = participant_id(application_id)
     application = db.session.get(Application, application_id)
     if not application or not can('view_application', application, user=actor):

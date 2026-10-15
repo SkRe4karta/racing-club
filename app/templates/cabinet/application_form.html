@@ -15,7 +15,6 @@
 {% if current_user.role == 'JOCKEY' %}<p>Жокей: {{ current_user.jockey.full_name }} (вы)</p>
 {% else %}<label for="jockey_id">Жокей</label><select class="form-select mb-3" id="jockey_id" name="jockey_id" required><option value="">Выберите жокея</option>
 {% for jockey in jockeys %}<option value="{{ jockey.id }}" {% if request.form.get('jockey_id') == jockey.id|string %}selected{% endif %}>{{ jockey.full_name }} · рейтинг {{ jockey.rating }}</option>{% endfor %}</select>{% endif %}
-{% if current_user.role == 'ROOT' %}<label for="side">Инициирующая сторона (действие ROOT)</label><select class="form-select mb-3" id="side" name="side"><option value="owner">Владелец</option><option value="jockey">Жокей</option></select>{% endif %}
 <button type="submit" class="btn btn-primary" {% if not competitions or not horses or not jockeys %}disabled{% endif %}>Отправить приглашение</button>
 <a class="btn btn-outline-secondary mt-3" href="{{ url_for('cabinet.dashboard') }}">В кабинет</a>
 </form>

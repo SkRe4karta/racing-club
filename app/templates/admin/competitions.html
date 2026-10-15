@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Управление соревнованиями</h1><p><a class="btn btn-primary" href="{{ url_for('admin.competition_new') }}">Создать без участников</a></p>
+<form method="GET" class="d-flex gap-2 mb-3"><label for="status">Состояние</label><select name="status" id="status" class="form-select"><option value="">Все</option>{% for value,label in [('planned','Предстоящие'),('completed','Завершённые')] %}<option value="{{ value }}" {% if request.args.get('status') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="btn btn-outline-secondary">Показать</button></form>
+<div class="table-responsive"><table class="table"><thead><tr><th>Соревнование</th><th>Дата / время</th><th>Состояние</th><th>Место</th></tr></thead><tbody>{% for comp in pagination.items %}<tr><td><a href="{{ url_for('admin.competition_detail', identifier=comp.id) }}">{{ comp.title }}</a></td><td>{{ comp.formatted_date }} {{ comp.formatted_time }}</td><td>{{ 'Завершено' if comp.is_completed else 'Запланировано' }}</td><td>{{ comp.location }}</td></tr>{% else %}<tr><td colspan="4">Соревнований нет.</td></tr>{% endfor %}</tbody></table></div>{% include 'cabinet/_pagination.html' %}
+{% endblock %}

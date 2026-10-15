@@ -16,18 +16,19 @@ def can(permission, obj=None, user=None):
         'cancel_application', 'notification',
     }:
         return False
+    if permission == 'create_application':
+        return user.role in ('OWNER', 'JOCKEY')
     if permission == 'notification':
         return obj is not None and obj.user_id == user.id
     if permission in ('confirm_application', 'cancel_application'):
         if obj is None or not obj.is_active or obj.status == 'admin_confirmed':
             return False
         if permission == 'cancel_application':
-            return obj.initiator_id == user.id or user.role == 'ROOT'
+            return user.role in ('OWNER', 'JOCKEY') and obj.initiator_id == user.id
         if obj.initiator_id == user.id:
             return False
         return ((obj.status == 'awaiting_owner' and user.role == 'OWNER' and obj.owner_user_id == user.id)
-                or (obj.status == 'awaiting_jockey' and user.role == 'JOCKEY' and obj.jockey_user_id == user.id)
-                or (user.role == 'ROOT' and obj.status in ('awaiting_owner', 'awaiting_jockey')))
+                or (obj.status == 'awaiting_jockey' and user.role == 'JOCKEY' and obj.jockey_user_id == user.id))
     if user.role == 'ROOT':
         return True
     if permission in ('cabinet', 'create_application'):

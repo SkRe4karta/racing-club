@@ -422,16 +422,16 @@ class Alpha2Tests(unittest.TestCase):
         self.assertEqual(self.client.get('/cabinet/').status_code, 302)
         self.assertEqual(self.client.get('/cabinet/applications').status_code, 302)
 
-    def test_root_workflow_and_admin_system_boundaries(self):
-        self.assertEqual(self.create('root', side='owner').status_code, 302)
-        identifier = self.application_id()
-        self.assertEqual(self.post(f'/cabinet/applications/{identifier}/confirm').status_code, 403)
-        self.assertEqual(self.post(f'/cabinet/applications/{identifier}/cancel').status_code, 302)
+    def test_root_cannot_impersonate_personal_consent_and_admin_boundaries(self):
+        self.assertEqual(self.create('root', side='owner').status_code, 403)
+        self.assertEqual(self.counts(), (0, 0, 0, 1))
         self.create()
-        self.login('root')
         identifier = self.application_id()
+        self.login('root')
         self.assertEqual(self.client.get(f'/cabinet/applications/{identifier}').status_code, 200)
-        self.assertEqual(self.post(f'/cabinet/applications/{identifier}/confirm').status_code, 302)
+        for action in ('confirm', 'reject', 'cancel'):
+            self.assertEqual(self.post(f'/cabinet/applications/{identifier}/{action}').status_code, 403)
+        self.assertEqual(self.state(), 'awaiting_jockey')
         self.login('admin')
         self.assertEqual(self.client.get(f'/cabinet/applications/{identifier}').status_code, 403)
         self.assertEqual(self.client.get('/owners/add').status_code, 403)
@@ -528,7 +528,7 @@ class Alpha2Tests(unittest.TestCase):
     def test_admin_creation_deadline_validation_and_existing_behavior(self):
         self.login('admin')
         data = dict(title='Срок', event_date=(date.today() + timedelta(days=10)).isoformat(), event_time='12:00',
-                    location='Москва', **{'horse_id[]': str(self.ids['owner_horse']), 'jockey_id[]': str(self.ids['jockey_profile'])})
+                    location='Москва', distance='1600', max_participants='20')
         late = (date.today() + timedelta(days=11)).isoformat() + 'T12:00'
         response = self.post('/competitions/future/add', {**data, 'registration_deadline': late})
         self.assertIn('Срок регистрации не может', response.text)
@@ -539,4 +539,4 @@ class Alpha2Tests(unittest.TestCase):
             self.assertIsNotNone(comp.registration_deadline)
             from app.application_services import as_utc
             self.assertEqual(as_utc(comp.registration_deadline).hour, 9)
-            self.assertEqual(len(comp.results), 1)
+            self.assertEqual(len(comp.results), 0)

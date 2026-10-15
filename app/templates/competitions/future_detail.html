@@ -19,6 +19,7 @@
       Внести результаты
     </a>{% endif %}
   </div>
+  <p>Дистанция: {{ competition.distance or "не указана (историческая запись)" }} м · Лимит: {{ competition.max_participants or "не задан" }}.</p>
   <p>Приём заявок до {{ registration_closes(competition).astimezone(club_timezone).strftime('%d.%m.%Y %H:%M %Z') }}.</p>
   {% if can('create_application') and registration_open(competition) %}
   <p><a class="btn btn-primary" href="{{ url_for('cabinet.application_new', competition_id=competition.id) }}">Заявить на соревнование</a></p>
@@ -29,10 +30,11 @@
       Ожидает завершения: дата состязания прошла. Внесите результаты всех участников.
     </div>
   {% endif %}
+  {% if current_user.is_authenticated and current_user.role in ('OWNER', 'JOCKEY') %}<p><a href="{{ url_for('cabinet.applications') }}">Мои ожидающие заявки (отдельно от стартового списка)</a></p>{% endif %}
   <div class="card">
     <div class="card-header">
       <h2 class="h5 mb-0">
-        Заявленные участники · {{ competition.results|length }}
+        Официальный стартовый список · {{ competition.results|length }}
       </h2>
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('export_results',comp_id=competition.id) }}">
         CSV
@@ -54,14 +56,14 @@
               </th>
               <th>
                 Жокей
-              </th>
+              </th><th>Статус допуска</th>
             </tr>
           </thead>
           <tbody>
             {% for r in competition.results %}
               <tr>
                 <td>
-                  {{ loop.index }}
+                  {{ r.start_number if r.start_number else "Архив № " ~ r.id }}
                 </td>
                 <td>
                   <a href="{{ url_for('horses.detail_horse',horse_id=r.horse.id) }}">
@@ -78,6 +80,7 @@
                     {{ r.jockey.full_name }}
                   </a>
                 </td>
+                <td>{{ "Допущен администратором" if r.application_id else "Исключение ROOT" if r.start_number else "Исторический участник" }}</td>
               </tr>
             {% endfor %}
           </tbody>

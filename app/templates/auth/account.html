@@ -3,6 +3,8 @@
 {% block content %}
 <div class="page-heading"><div><h1>Ваш аккаунт</h1><p>Вы вошли в Racing Club.</p></div></div>
 <div class="card p-4 account-card">
+  {% if can('manage_system') %}<p><a class="btn btn-primary" href="{{ url_for('root.dashboard_root') }}">Системная панель ROOT</a></p>{% endif %}
+  {% if can('manage_competitions') %}<p><a class="btn btn-primary" href="{{ url_for('admin.dashboard') }}">Панель ADMIN</a></p>{% endif %}
   <p>Email: {{ current_user.email }}</p>
   <p>Роль: {{ current_user.role }}</p>
   {% if current_user.owner %}<p><a href="{{ url_for('owners.detail_owner', owner_id=current_user.owner_id) }}">Ваш профиль владельца</a></p>{% endif %}

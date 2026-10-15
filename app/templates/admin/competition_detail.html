@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ competition.title }}</h1><p>{{ competition.formatted_date }} {{ competition.formatted_time }} · {{ competition.location }}</p>
+<p>Дистанция {{ competition.distance or 'не указана' }} м · Лимит {{ competition.max_participants or 'не задан' }} · {{ 'Завершено' if competition.is_completed else 'Запланировано' }}</p>
+<p class="d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="{{ url_for('admin.applications', competition_id=competition.id) }}">Все заявки</a><a class="btn btn-outline-secondary" href="{{ url_for('competitions.past_detail' if competition.is_completed else 'competitions.future_detail', comp_id=competition.id) }}">{{ 'Опубликованный протокол' if competition.is_completed else 'Официальный стартовый список' }}</a>
+{% if not competition.is_completed %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.competition_edit', identifier=competition.id) }}">Изменить параметры</a><a class="btn btn-success" href="{{ url_for('competitions.complete', comp_id=competition.id) }}">Внести результаты и завершить</a>{% endif %}</p>
+<h2>Допущенные участники · {{ competition.results|length }}</h2>
+<div class="table-responsive"><table class="table"><thead><tr><th>Стартовый №</th><th>Лошадь</th><th>Владелец</th><th>Жокей</th><th>Основание допуска</th></tr></thead><tbody>{% for row in competition.results|sort(attribute='id') %}<tr><td>{{ row.start_number or 'Исторический' }}</td><td><a href="{{ url_for('horses.detail_horse', horse_id=row.horse_id) }}">{{ row.horse.nickname }}</a></td><td>{{ row.horse.owner.full_name }}</td><td>{{ row.jockey.full_name }}</td><td>{{ 'Заявка № ' ~ row.application_id if row.application_id else 'Исключение ROOT' if row.start_number else 'Исторический участник v1.1' }}</td></tr>{% else %}<tr><td colspan="5">Утверждённых участников нет.</td></tr>{% endfor %}</tbody></table></div>
+{% if can('manage_system') and not competition.is_completed %}<p><a href="{{ url_for('admin.manual', identifier=competition.id) }}">Административное исключение ROOT: ручной допуск с причиной</a></p>{% endif %}
+{% endblock %}
