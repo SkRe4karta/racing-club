@@ -57,7 +57,7 @@ class MigrationTests(unittest.TestCase):
 
     def test_fresh_install_schema_matches_models_and_auth_works(self):
         self.cli('db', 'upgrade')
-        self.assertEqual(set(sa.inspect(db.engine).get_table_names()), set(LEGACY_TABLES) | {'users', 'auth_throttles', 'applications', 'application_events', 'notifications', 'audit_logs', 'alembic_version'})
+        self.assertEqual(set(sa.inspect(db.engine).get_table_names()), set(LEGACY_TABLES) | {'users', 'auth_throttles', 'applications', 'application_events', 'notifications', 'audit_logs', 'predictions', 'prediction_choices', 'alembic_version'})
         self.cli('db', 'check')
         password = secrets.token_urlsafe(24)
         root = self.runner.invoke(args=['create-root', '--email', 'root@example.test'], input=password + '\n' + password + '\n')
@@ -100,7 +100,7 @@ class MigrationTests(unittest.TestCase):
     def test_adopt_refuses_managed_database(self):
         self.cli('db', 'upgrade')
         self.assertNotEqual(self.runner.invoke(args=['adopt-legacy']).exit_code, 0)
-        self.assertEqual(db.session.scalar(sa.text('SELECT version_num FROM alembic_version')), '0004_administration')
+        self.assertEqual(db.session.scalar(sa.text('SELECT version_num FROM alembic_version')), '0005_predictions')
 
     def test_upgrade_idempotent_downgrade_refused_without_data_loss(self):
         self.legacy()

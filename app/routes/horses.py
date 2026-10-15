@@ -1,6 +1,7 @@
 from sqlalchemy.orm import selectinload
 from flask import Blueprint, abort, render_template, request, redirect, url_for, flash
 from flask_login import current_user
+from app.analytics import filter_history
 from app import db
 from app.models import Horse, Owner, Result, Competition
 from app.permissions import permission_required
@@ -79,7 +80,7 @@ def detail_horse(horse_id):
         return redirect(url_for('horses.list_horses'))
     
     # Получаем историю состязаний лошади
-    results = Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(horse_id=horse.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc()).all()
+    results = filter_history(Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(horse_id=horse.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc())).all()
     from app.models import Application
     from app.permissions import can
     applications = []

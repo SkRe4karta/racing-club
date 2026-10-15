@@ -344,6 +344,8 @@ def publish_protocol(actor, identifier, data, *, correction_reason=None, expecte
                   reason=correction_reason, old=old, new=protocol_snapshot(rows))
     message(entry, starter_accounts(comp), 'Опубликована коррекция протокола.' if correction else
             'Соревнование завершено. Опубликованы результаты.', comp.id)
+    from app.prediction_services import assess_predictions
+    assess_predictions(comp, rows)
     db.session.commit()
     return comp
 

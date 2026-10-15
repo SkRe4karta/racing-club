@@ -322,3 +322,48 @@ class AuditLog(db.Model):
     new_values = db.Column(db.JSON)
     actor = db.relationship('User')
     __table_args__ = (Index('ix_audit_logs_object', 'object_type', 'object_id', 'id'),)
+
+
+class Prediction(db.Model):
+    """One editable selection per account, race and mode; assessment is revisioned."""
+    __tablename__ = 'predictions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    competition_id = db.Column(db.Integer, db.ForeignKey('competitions.id', ondelete='RESTRICT'), nullable=False)
+    mode = db.Column(db.String(12), nullable=False)
+    revision = db.Column(db.Integer, nullable=False, default=1)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    evaluated_at = db.Column(db.DateTime(timezone=True))
+    protocol_revision = db.Column(db.Integer)
+    outcome = db.Column(db.String(12), nullable=False, default='pending')
+    winner_correct = db.Column(db.Boolean)
+    podium_hits = db.Column(db.Integer)
+    exact_trio = db.Column(db.Boolean)
+    competition = db.relationship('Competition')
+    choices = db.relationship('PredictionChoice', cascade='all, delete-orphan', order_by='PredictionChoice.position')
+    __table_args__ = (
+        UniqueConstraint('user_id', 'competition_id', 'mode', name='uq_predictions_user_race_mode'),
+        CheckConstraint("mode IN ('winner', 'trio')", name='ck_predictions_mode'),
+        CheckConstraint("outcome IN ('pending', 'evaluated', 'void')", name='ck_predictions_outcome'),
+        CheckConstraint('revision > 0', name='ck_predictions_revision'),
+        CheckConstraint('podium_hits IS NULL OR podium_hits BETWEEN 0 AND 3', name='ck_predictions_hits'),
+        Index('ix_predictions_competition', 'competition_id'),
+        Index('ix_predictions_user_created', 'user_id', 'created_at'),
+    )
+
+
+class PredictionChoice(db.Model):
+    """Horse identities survive changes to the official starting list."""
+    __tablename__ = 'prediction_choices'
+    id = db.Column(db.Integer, primary_key=True)
+    prediction_id = db.Column(db.Integer, db.ForeignKey('predictions.id', ondelete='RESTRICT'), nullable=False)
+    horse_id = db.Column(db.Integer, db.ForeignKey('horses.id', ondelete='RESTRICT'), nullable=False)
+    position = db.Column(db.Integer, nullable=False)
+    position_correct = db.Column(db.Boolean)
+    horse = db.relationship('Horse')
+    __table_args__ = (
+        UniqueConstraint('prediction_id', 'position', name='uq_prediction_choices_position'),
+        UniqueConstraint('prediction_id', 'horse_id', name='uq_prediction_choices_horse'),
+        CheckConstraint('position BETWEEN 1 AND 3', name='ck_prediction_choices_position'),
+    )

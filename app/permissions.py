@@ -13,9 +13,11 @@ def can(permission, obj=None, user=None):
         'manage_system', 'manage_competitions', 'create_owner', 'create_jockey',
         'create_horse', 'manage_horse', 'manage_owner', 'manage_jockey', 'account',
         'cabinet', 'create_application', 'view_application', 'confirm_application',
-        'cancel_application', 'notification',
+        'cancel_application', 'notification', 'predict',
     }:
         return False
+    if permission == 'predict':
+        return user.role in ('ROOT', 'ADMIN', 'OWNER', 'JOCKEY', 'VIEWER')
     if permission == 'create_application':
         return user.role in ('OWNER', 'JOCKEY')
     if permission == 'notification':

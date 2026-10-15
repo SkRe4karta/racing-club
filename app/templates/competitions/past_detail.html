@@ -3,6 +3,7 @@
   {{ competition.title }} — Итоговый протокол
 {% endblock %}
 {% block content %}
+<p><a class="btn btn-primary" href="{{ url_for('predictions.detail', comp_id=competition.id) }}">Спортивные прогнозы ↗</a></p>
   <div class="page-heading">
     <div>
       <div class="section-kicker">

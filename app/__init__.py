@@ -26,7 +26,7 @@ def create_app(test_config=None):
         LOGIN_LIMIT=5,
         LOGIN_IP_LIMIT=30,
         REGISTER_LIMIT=10,
-        VERSION='2.0.0-alpha.3',
+        VERSION='2.0.0-alpha.4',
         CLUB_TIMEZONE='Europe/Moscow',
     )
 
@@ -80,6 +80,10 @@ def create_app(test_config=None):
     from app.routes.admin import admin_bp, root_bp
     app.register_blueprint(admin_bp)
     app.register_blueprint(root_bp)
+    from app.routes.predictions import predictions_bp
+    from app.routes.analytics import analytics_bp
+    app.register_blueprint(predictions_bp)
+    app.register_blueprint(analytics_bp)
     app.register_blueprint(errors_bp)
 
     return app

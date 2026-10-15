@@ -140,7 +140,8 @@ def setup_web(app):
             finished = sorted([r for r in results if r.competition.is_completed], key=lambda r:(r.competition.event_date, r.competition.event_time), reverse=True)
             wins = sum(r.place == 1 and not r.is_disqualified for r in finished)
             return dict(count=len(finished), wins=wins, seconds=sum(r.place == 2 and not r.is_disqualified for r in finished), thirds=sum(r.place == 3 and not r.is_disqualified for r in finished), disqualifications=sum(r.is_disqualified for r in finished), dnf=sum(r.did_not_finish for r in finished), podium=sum(r.place in (1,2,3) and not r.is_disqualified for r in finished), rate=round(wins / len(finished)*100,1) if finished else None, last=finished[0] if finished else None)
-        return dict(today=date.today(), query_url=query_url, performance=performance)
+        from app.analytics import performance_chart, comparable_times
+        return dict(today=date.today(), query_url=query_url, performance=performance, performance_chart=performance_chart, comparable_times=comparable_times)
 
     @app.get('/health')
     def health():

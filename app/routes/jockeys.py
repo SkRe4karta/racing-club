@@ -1,6 +1,7 @@
 import math
 from sqlalchemy.orm import selectinload
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from app.analytics import filter_history
 from app import db
 from app.models import Jockey, Result, Competition
 from app.permissions import permission_required
@@ -64,5 +65,5 @@ def detail_jockey(jockey_id):
         flash("Жокей не найден.", "warning")
         return redirect(url_for('jockeys.list_jockeys'))
 
-    results = Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(jockey_id=jockey.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc()).all()
+    results = filter_history(Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(jockey_id=jockey.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc())).all()
     return render_template('jockeys/detail.html', jockey=jockey, results=results)

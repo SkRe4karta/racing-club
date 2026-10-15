@@ -1,3 +1,7 @@
+{% if request.blueprint in ('horses','jockeys') %}<form method="GET" class="filters"><div><label for="history-from">История с</label><input class="form-control" id="history-from" type="date" name="from" value="{{ request.args.get('from','') }}"></div><div><label for="history-to">История по</label><input class="form-control" id="history-to" type="date" name="to" value="{{ request.args.get('to','') }}"></div><button class="btn btn-primary" type="submit">Выбрать период</button></form>{% endif %}
+{% if results %}<section class="chart-panel"><h2>Динамика выступлений</h2><p>Официальное место по завершённым стартам. Пропуски — DNF и DSQ. Последние 24 выступления; меньшее место означает лучший результат.</p><div class="sport-chart" data-chart='{{ performance_chart(results)|tojson }}'></div></section>{% endif %}
+{% set averages = comparable_times(results) %}
+{% if averages %}<section class="card p-4"><h2>Среднее время по дистанциям</h2><p class="text-muted">Только финиши завершённых стартов, без DNF и DSQ. Разные дистанции не объединяются.</p><div class="table-responsive"><table class="table"><thead><tr><th>Дистанция</th><th>Среднее время</th><th>Финишей</th></tr></thead><tbody>{% for distance,average,count in averages %}<tr><td>{{ distance }} м</td><td>{{ average }} с</td><td>{{ count }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
 {% set metric = performance(results) %}
 <div class="stat-inline">
   <div class="stat-card">
