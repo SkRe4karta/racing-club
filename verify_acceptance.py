@@ -1,7 +1,9 @@
 import unittest
+import secrets
 from datetime import date, time
 from app import create_app, db
-from app.models import Owner, Horse, Jockey, Competition, Result
+from app.models import Owner, Horse, Jockey, Competition, Result, User
+from tests.support import isolated_database
 from app.services import (
     create_future_competition,
     complete_planned_competition,
@@ -11,9 +13,10 @@ from app.services import (
 
 class VerificationTestCase(unittest.TestCase):
     def setUp(self):
+        self.database = isolated_database()
         self.app = create_app({
             'TESTING': True,
-            'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+            'SQLALCHEMY_DATABASE_URI': self.database.__enter__(),
             'WTF_CSRF_ENABLED': False
         })
         self.app_context = self.app.app_context()
@@ -38,11 +41,20 @@ class VerificationTestCase(unittest.TestCase):
         db.session.commit()
 
         self.client = self.app.test_client()
+        # v2 protects writes: run original regression assertions as a real ROOT.
+        password = secrets.token_urlsafe(24)
+        root = User(email='regression@example.test', role='ROOT', status='active')
+        root.set_password(password)
+        db.session.add(root)
+        db.session.commit()
+        response = self.client.post('/auth/login', data={'email': root.email, 'password': password})
+        self.assertEqual(response.status_code, 302)
 
     def tearDown(self):
         db.session.remove()
-        db.drop_all()
+        db.engine.dispose()
         self.app_context.pop()
+        self.database.__exit__(None, None, None)
 
     def test_1_add_owner_and_view(self):
         # 1. Добавление владельца и отображение его в списке
