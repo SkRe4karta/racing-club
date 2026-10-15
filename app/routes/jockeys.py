@@ -1,13 +1,15 @@
+import math
+from sqlalchemy.orm import selectinload
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app import db
-from app.models import Jockey, Result
+from app.models import Jockey, Result, Competition
 
 jockeys_bp = Blueprint('jockeys', __name__)
 
 @jockeys_bp.route('/')
 def list_jockeys():
-    jockeys = Jockey.query.order_by(Jockey.full_name.asc()).all()
-    return render_template('jockeys/list.html', jockeys=jockeys)
+    from app.web import listing
+    return listing('jockeys')
 
 @jockeys_bp.route('/add', methods=['GET', 'POST'])
 def add_jockey():
@@ -25,7 +27,7 @@ def add_jockey():
         try:
             age = int(age_str)
             if age <= 0 or age > 100:
-                errors.append("Возраст жокея должен быть положительным числом (от 14 до 100).")
+                errors.append("Возраст жокея должен быть положительным числом (от 1 до 100).")
         except (ValueError, TypeError):
             errors.append("Возраст жокея должен быть целым положительным числом.")
 
@@ -33,8 +35,8 @@ def add_jockey():
         if rating_str:
             try:
                 rating = float(rating_str)
-                if rating < 0:
-                    errors.append("Рейтинг жокея не может быть отрицательным числом.")
+                if not math.isfinite(rating) or rating < 0:
+                    errors.append("Рейтинг должен быть конечным неотрицательным числом.")
             except (ValueError, TypeError):
                 errors.append("Поле «Рейтинг» должно быть числовым значением.")
         else:
@@ -60,5 +62,5 @@ def detail_jockey(jockey_id):
         flash("Жокей не найден.", "warning")
         return redirect(url_for('jockeys.list_jockeys'))
 
-    results = Result.query.filter_by(jockey_id=jockey.id).all()
+    results = Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(jockey_id=jockey.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc()).all()
     return render_template('jockeys/detail.html', jockey=jockey, results=results)

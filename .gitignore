@@ -12,3 +12,10 @@ instance/
 htmlcov/
 .vscode/
 .idea/
+.env
+.env.*
+!.env.example
+*.sqlite*
+*.db-*
+*.bak
+screenshots/

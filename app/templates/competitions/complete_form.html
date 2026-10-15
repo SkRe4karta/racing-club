@@ -8,7 +8,7 @@
         <div class="card shadow-sm">
             <div class="card-header py-3 bg-light">
                 <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-flag-fill me-2 text-success"></i>Завершение состязания: ввод результатов
+                    Завершение состязания: ввод результатов
                 </h5>
             </div>
             <div class="card-body p-4">
@@ -18,21 +18,21 @@
                         <div>
                             <h4 class="fw-bold mb-1">{{ competition.title }}</h4>
                             <div class="text-muted small">
-                                <i class="bi bi-calendar"></i> {{ competition.formatted_date }} &bull;
-                                <i class="bi bi-clock"></i> {{ competition.formatted_time }} &bull;
-                                <i class="bi bi-geo-alt"></i> {{ competition.location }}
+                                 {{ competition.formatted_date }} &bull;
+                                 {{ competition.formatted_time }} &bull;
+                                 {{ competition.location }}
                             </div>
                         </div>
-                        <span class="badge bg-primary fs-6">Запланировано</span>
+                        <span class="badge badge-planned">Участников: {{ results|length }}</span>
                     </div>
                 </div>
 
                 <div class="alert alert-info py-2 px-3 small mb-4">
-                    <i class="bi bi-info-circle me-1"></i>
+
                     <strong>Правила фиксации результатов:</strong> Участники зафиксированы предварительной заявкой. Для каждого участника необходимо указать показанное время (например: <code>124.50</code> или <code>02:04.50</code>) либо отметить чекбокс «Дисквалификация». Места будут рассчитаны автоматически по возрастанию времени. После сохранения изменения запрещены.
                 </div>
 
-                <form method="POST" action="{{ url_for('competitions.complete', comp_id=competition.id) }}">
+                <form method="POST" action="{{ url_for('competitions.complete', comp_id=competition.id) }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
                     <div class="table-responsive mb-4">
                         <table class="table table-hover align-middle border">
                             <thead class="table-light">
@@ -66,7 +66,7 @@
                                                    class="form-control form-control-sm font-monospace time-input"
                                                    placeholder="например 02:04.50"
                                                    value="{{ time_val }}"
-                                                   {% if is_disq %}disabled{% endif %}>
+                                                   {% if is_disq %}readonly{% endif %}>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check d-inline-block">
@@ -89,10 +89,10 @@
 
                     <div class="d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('competitions.future_detail', comp_id=competition.id) }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left"></i> Отмена
+                             Отмена
                         </a>
                         <button type="submit" class="btn btn-success px-4" onclick="return confirm('Завершить состязание и зафиксировать результаты? После завершения изменения будут заблокированы.');">
-                            <i class="bi bi-check-circle"></i> Зафиксировать результаты и рассчитать места
+                             Зафиксировать результаты и рассчитать места
                         </button>
                     </div>
                 </form>

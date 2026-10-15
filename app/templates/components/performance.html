@@ -1,0 +1,140 @@
+{% set metric = performance(results) %}
+<div class="stat-inline">
+  <div class="stat-card">
+    <span>
+      Завершённых выступлений
+    </span>
+    <strong>
+      {{ metric.count }}
+    </strong>
+  </div>
+  <div class="stat-card">
+    <span>
+      Побед
+    </span>
+    <strong>
+      {{ metric.wins }}
+    </strong>
+  </div>
+  <div class="stat-card">
+    <span>
+      Призовых мест
+    </span>
+    <strong>
+      {{ metric.podium }}
+    </strong>
+  </div>
+  <div class="stat-card">
+    <span>
+      Процент побед
+    </span>
+    <strong>
+      {{ metric.rate|string + '%' if metric.rate is not none else '—' }}
+    </strong>
+  </div>
+</div>
+{% if metric.last %}
+  <p class="small text-muted">
+    Последний результат:
+    <a href="{{ url_for('competitions.past_detail',comp_id=metric.last.competition.id) }}">
+      {{ metric.last.competition.title }}
+    </a>
+    · {{ metric.last.formatted_finish_time }}
+    {% if metric.last.place %}
+      · {{ metric.last.place }} место
+    {% endif %}
+  </p>
+{% else %}
+  <p class="small text-muted">
+    Завершённых выступлений пока нет. Спортивная статистика появится после внесения результатов.
+  </p>
+{% endif %}
+<div class="card">
+  <div class="card-header">
+    <h2 class="h5 mb-0">
+      История выступлений
+    </h2>
+    <span class="badge bg-secondary">
+      {{ results|length }}
+    </span>
+  </div>
+  {% if results %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>
+              Дата
+            </th>
+            <th>
+              Состязание
+            </th>
+            <th>
+              Лошадь
+            </th>
+            <th>
+              Жокей
+            </th>
+            <th>
+              Место
+            </th>
+            <th>
+              Время / результат
+            </th>
+            <th>
+              Состояние
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+            <tr>
+              <td>
+                {{ r.competition.formatted_date }}
+                <div class="small text-muted">
+                  {{ r.competition.formatted_time }}
+                </div>
+              </td>
+              <td>
+                <a href="{{ url_for('competitions.past_detail' if r.competition.is_completed else 'competitions.future_detail',comp_id=r.competition.id) }}">
+                  {{ r.competition.title }}
+                </a>
+              </td>
+              <td>
+                <a href="{{ url_for('horses.detail_horse',horse_id=r.horse.id) }}">
+                  {{ r.horse.nickname }}
+                </a>
+              </td>
+              <td>
+                <a href="{{ url_for('jockeys.detail_jockey',jockey_id=r.jockey.id) }}">
+                  {{ r.jockey.full_name }}
+                </a>
+              </td>
+              <td>
+                {% if r.place %}
+                  <span class="place-badge place-{{ r.place }}">
+                    {{ r.place }}
+                  </span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="{% if r.is_disqualified %}text-danger{% endif %}">
+                {{ r.formatted_finish_time }}
+              </td>
+              <td>
+                <span class="badge {{ 'badge-completed' if r.competition.is_completed else 'badge-planned' }}">
+                  {{ 'Завершено' if r.competition.is_completed else 'Запланировано' }}
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      Выступлений пока нет. Участие появится после заявки на состязание.
+    </div>
+  {% endif %}
+</div>

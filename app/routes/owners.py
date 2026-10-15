@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from sqlalchemy.orm import selectinload
 from app import db
 from app.models import Owner
 
@@ -6,8 +7,8 @@ owners_bp = Blueprint('owners', __name__)
 
 @owners_bp.route('/')
 def list_owners():
-    owners = Owner.query.order_by(Owner.full_name.asc()).all()
-    return render_template('owners/list.html', owners=owners)
+    from app.web import listing
+    return listing('owners')
 
 @owners_bp.route('/add', methods=['GET', 'POST'])
 def add_owner():
@@ -30,7 +31,7 @@ def add_owner():
 
 @owners_bp.route('/<int:owner_id>')
 def detail_owner(owner_id):
-    owner = db.session.get(Owner, owner_id)
+    owner = db.session.get(Owner, owner_id, options=[selectinload(Owner.horses)])
     if not owner:
         flash("Владелец не найден.", "warning")
         return redirect(url_for('owners.list_owners'))

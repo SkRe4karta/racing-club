@@ -1,135 +1,105 @@
 {% extends 'base.html' %}
-
-{% block title %}Протокол: {{ competition.title }} &mdash; АИС «Скачки»{% endblock %}
-
+{% block title %}
+  {{ competition.title }} — Итоговый протокол
+{% endblock %}
 {% block content %}
-<div class="mb-4">
-    <a href="{{ url_for('competitions.past_list') }}" class="btn btn-outline-secondary btn-sm mb-3">
-        <i class="bi bi-arrow-left"></i> К списку прошедших состязаний
-    </a>
-
-    <!-- Верхняя панель: сведения о состоявшемся состязании -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-                <div>
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <h2 class="h4 fw-bold mb-0">{{ competition.title }}</h2>
-                        <span class="badge badge-completed">Завершено</span>
-                    </div>
-                    <span class="text-muted">Официальный итоговый протокол состязания</span>
-                </div>
-                <div class="badge bg-light text-secondary border px-3 py-2">
-                    <i class="bi bi-lock-fill me-1"></i> Результаты зафиксированы
-                </div>
-            </div>
-            <hr>
-            <div class="row g-3">
-                <div class="col-sm-6 col-md-3">
-                    <div class="text-muted small">Дата проведения</div>
-                    <div class="fw-semibold fs-5">{{ competition.formatted_date }}</div>
-                </div>
-                <div class="col-sm-6 col-md-3">
-                    <div class="text-muted small">Время старта</div>
-                    <div class="fw-semibold fs-5">{{ competition.formatted_time }}</div>
-                </div>
-                <div class="col-md-6">
-                    <div class="text-muted small">Ипподром (место)</div>
-                    <div class="fw-semibold fs-5">{{ competition.location }}</div>
-                </div>
-            </div>
-        </div>
+  <div class="page-heading">
+    <div>
+      <div class="section-kicker">
+        ИТОГОВЫЙ ПРОТОКОЛ
+      </div>
+      <h1>
+        {{ competition.title }}
+      </h1>
+      <p class="description mb-0">
+        {{ competition.formatted_date }} · {{ competition.formatted_time }} · {{ competition.location }}
+      </p>
     </div>
-
-    <!-- Таблица официальных результатов заезда -->
-    <div class="card shadow-sm">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0 fw-bold">
-                <i class="bi bi-trophy-fill me-2 text-warning"></i>Итоговая таблица результатов
-            </h5>
-            <span class="text-muted small">Места рассчитаны автоматически на основании показанного времени</span>
-        </div>
-        <div class="card-body p-0">
-            {% if results %}
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th style="width: 80px;" class="text-center">Место</th>
-                                <th>Лошадь</th>
-                                <th>Владелец</th>
-                                <th>Жокей</th>
-                                <th>Показанное время</th>
-                                <th class="text-center">Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for res in results %}
-                                <tr {% if res.place == 1 %}class="table-warning bg-opacity-25"{% endif %}>
-                                    <td class="text-center">
-                                        {% if res.is_disqualified %}
-                                            <span class="text-muted">—</span>
-                                        {% elif res.place == 1 %}
-                                            <span class="place-badge place-1">1</span>
-                                        {% elif res.place == 2 %}
-                                            <span class="place-badge place-2">2</span>
-                                        {% elif res.place == 3 %}
-                                            <span class="place-badge place-3">3</span>
-                                        {% else %}
-                                            <span class="place-badge place-other">{{ res.place }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="fw-bold">
-                                            <a href="{{ url_for('horses.detail_horse', horse_id=res.horse.id) }}" class="text-decoration-none text-dark">
-                                                {{ res.horse.nickname }}
-                                            </a>
-                                            {% if res.place == 1 %}
-                                                <i class="bi bi-award-fill text-warning ms-1" title="Победитель"></i>
-                                            {% endif %}
-                                        </div>
-                                        <div class="small text-muted">{{ res.horse.gender }}, {{ res.horse.age }} лет</div>
-                                    </td>
-                                    <td>
-                                        <a href="{{ url_for('owners.detail_owner', owner_id=res.horse.owner.id) }}" class="text-decoration-none">
-                                            {{ res.horse.owner.full_name }}
-                                        </a>
-                                    </td>
-                                    <td>
-                                        <div class="fw-semibold">
-                                            <a href="{{ url_for('jockeys.detail_jockey', jockey_id=res.jockey.id) }}" class="text-decoration-none">
-                                                {{ res.jockey.full_name }}
-                                            </a>
-                                        </div>
-                                        <div class="small text-muted">рейтинг: {{ "%.1f"|format(res.jockey.rating) }}</div>
-                                    </td>
-                                    <td class="font-monospace fs-6">
-                                        {% if res.is_disqualified %}
-                                            <span class="text-danger">снят с состязания</span>
-                                        {% else %}
-                                            <strong>{{ res.formatted_finish_time }}</strong>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if res.is_disqualified %}
-                                            <span class="badge badge-disqualified">Дисквалифицирован</span>
-                                        {% elif res.place == 1 %}
-                                            <span class="badge bg-warning text-dark fw-bold">1 место (Победа)</span>
-                                        {% else %}
-                                            <span class="badge bg-light text-dark border">{{ res.place }} место</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="p-4 text-center text-muted">
-                    Результаты участников отсутствуют.
-                </div>
-            {% endif %}
-        </div>
+    <div class="d-flex gap-2">
+      <span class="badge badge-completed">
+        Завершено
+      </span>
+      <a class="btn btn-outline-secondary" href="{{ url_for('export_results',comp_id=competition.id) }}">
+        ↓ Экспорт CSV
+      </a>
     </div>
-</div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h2 class="h5 mb-0">
+        Результаты заезда
+      </h2>
+      <span class="small text-muted">
+        Участников: {{ results|length }}
+      </span>
+    </div>
+    {% if results %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>
+                Место
+              </th>
+              <th>
+                Лошадь
+              </th>
+              <th>
+                Жокей
+              </th>
+              <th>
+                Время
+              </th>
+              <th>
+                Статус результата
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in results %}
+              <tr>
+                <td>
+                  {% if r.place %}
+                    <span class="place-badge place-{{ r.place }}">
+                      {{ r.place }}
+                    </span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>
+                  <a class="fw-semibold" href="{{ url_for('horses.detail_horse',horse_id=r.horse.id) }}">
+                    {{ r.horse.nickname }}
+                  </a>
+                </td>
+                <td>
+                  <a href="{{ url_for('jockeys.detail_jockey',jockey_id=r.jockey.id) }}">
+                    {{ r.jockey.full_name }}
+                  </a>
+                </td>
+                <td class="font-monospace">
+                  {{ '—' if r.is_disqualified else r.formatted_finish_time }}
+                </td>
+                <td>
+                  <span class="badge {{ 'badge-disqualified' if r.is_disqualified else 'badge-completed' }}">
+                    {{ 'Дисквалификация' if r.is_disqualified else 'Финишировал' }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        В протоколе нет участников.
+      </div>
+    {% endif %}
+  </div>
+  <p class="small text-muted mt-3">
+    Результаты зафиксированы. Изменение завершённого состязания недоступно.
+  </p>
+  <a class="btn btn-outline-secondary" href="{{ url_for('competitions.past_list') }}">
+    ← Все прошедшие состязания
+  </a>
 {% endblock %}

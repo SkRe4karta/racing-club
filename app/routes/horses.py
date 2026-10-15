@@ -1,13 +1,14 @@
+from sqlalchemy.orm import selectinload
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app import db
-from app.models import Horse, Owner, Result
+from app.models import Horse, Owner, Result, Competition
 
 horses_bp = Blueprint('horses', __name__)
 
 @horses_bp.route('/')
 def list_horses():
-    horses = Horse.query.order_by(Horse.nickname.asc()).all()
-    return render_template('horses/list.html', horses=horses)
+    from app.web import listing
+    return listing('horses')
 
 @horses_bp.route('/add', methods=['GET', 'POST'])
 def add_horse():
@@ -21,7 +22,7 @@ def add_horse():
         errors = []
         if not nickname:
             errors.append("Поле «Кличка» обязательно для заполнения.")
-        if not gender:
+        if gender not in ('Жеребец', 'Кобыла', 'Мерин'):
             errors.append("Поле «Пол» обязательно для выбора.")
         
         age = None
@@ -35,7 +36,8 @@ def add_horse():
         owner_id = None
         try:
             owner_id = int(owner_id_str)
-            owner = db.session.get(Owner, owner_id)
+            id_limit = 2147483647 if db.engine.dialect.name == 'postgresql' else 9223372036854775807
+            owner = db.session.get(Owner, owner_id) if 1 <= owner_id <= id_limit else None
             if not owner:
                 errors.append("Выбран несуществующий владелец.")
         except (ValueError, TypeError):
@@ -69,6 +71,5 @@ def detail_horse(horse_id):
         return redirect(url_for('horses.list_horses'))
     
     # Получаем историю состязаний лошади
-    results = Result.query.filter_by(horse_id=horse.id).join(Result.competition).order_by(Result.competition.has()).all()
-    # Сортируем: сначала завершенные по дате убывания, потом запланированные
+    results = Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(horse_id=horse.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc()).all()
     return render_template('horses/detail.html', horse=horse, results=results)

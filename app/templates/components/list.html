@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+{% set config = {'owners':('Владельцы','Контакты владельцев и их лошади','owners.add_owner','Добавить владельца'), 'horses':('Лошади','Состав клуба, характеристики и история выступлений','horses.add_horse','Добавить лошадь'), 'jockeys':('Жокеи','Спортсмены клуба, рейтинг и результаты','jockeys.add_jockey','Добавить жокея'), 'future':('Будущие состязания','Календарь стартов и заявленные участники','competitions.future_add','Создать состязание'), 'past':('Прошедшие состязания','Архив заездов и итоговые протоколы','competitions.past_add','Добавить прошедшее')} %}
+{% set info = config[kind] %}
+{% block title %}
+  {{ info[0] }} — АИС «Скачки»
+{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="section-kicker">
+        {% if kind in ['future','past'] %}
+          СОСТЯЗАНИЯ КЛУБА
+        {% else %}
+          СПРАВОЧНИК КЛУБА
+        {% endif %}
+      </div>
+      <h1>
+        {{ info[0] }}
+      </h1>
+      <p class="description mb-0">
+        {{ info[1] }}
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-primary" href="{{ url_for(info[2]) }}">
+        ＋ {{ info[3] }}
+      </a>
+      {% if kind in ['future','past'] %}
+        <a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
+          Завершить состязание
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% if kind == 'future' %}
+    <div class="tabs" aria-label="Представление">
+      <a class="btn {% if request.args.get('view') != 'calendar' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ query_url(view='list',page=1) }}">
+        Список
+      </a>
+      <a class="btn {% if request.args.get('view') == 'calendar' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ query_url(view='calendar',page=1) }}">
+        Календарь
+      </a>
+    </div>
+  {% endif %}
+  <form class="filters" method="get">
+    {% if request.args.get('view') == 'calendar' %}
+      <input type="hidden" name="view" value="calendar">
+      <input type="hidden" name="month" value="{{ request.args.get('month','') }}">
+    {% endif %}
+    <div class="filter-field">
+      <label for="q">
+        {% if kind == 'horses' %}
+          Кличка
+        {% elif kind in ['future','past'] %}
+          Название
+        {% else %}
+          ФИО
+        {% endif %}
+      </label>
+      <input class="form-control" id="q" name="q" value="{{ request.args.get('q','') }}" placeholder="Поиск…" type="search">
+    </div>
+    {% if kind == 'owners' %}
+      <div class="filter-field">
+        <label for="phone">
+          Телефон
+        </label>
+        <input class="form-control" name="phone" id="phone" value="{{ request.args.get('phone','') }}">
+      </div>
+    {% endif %}
+    {% if kind == 'horses' %}
+      <div class="filter-field">
+        <label for="owner">
+          Владелец
+        </label>
+        <input class="form-control" name="owner" id="owner" value="{{ request.args.get('owner','') }}">
+      </div>
+      <div class="filter-field">
+        <label for="gender">
+          Пол
+        </label>
+        <select class="form-select" id="gender" name="gender">
+          <option value="">
+            Любой
+          </option>
+          {% for g in ['Жеребец','Кобыла','Мерин'] %}
+            <option {% if request.args.get('gender') == g %}selected{% endif %}>
+              {{ g }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="age">
+          Возраст
+        </label>
+        <input class="form-control" type="number" min="0" name="age" id="age" value="{{ request.args.get('age','') }}" placeholder="Любой">
+      </div>
+    {% endif %}
+    {% if kind in ['future','past'] %}
+      <div class="filter-field">
+        <label for="date">
+          Дата
+        </label>
+        <input class="form-control" type="date" name="date" id="date" value="{{ request.args.get('date','') }}">
+      </div>
+      <div class="filter-field">
+        <label for="location">
+          Место
+        </label>
+        <input class="form-control" name="location" id="location" value="{{ request.args.get('location','') }}" placeholder="Ипподром">
+      </div>
+    {% endif %}
+    <div class="filter-field">
+      <label for="sort">
+        Сортировка
+      </label>
+      <select class="form-select" name="sort" id="sort">
+        {% set choices = [('date','По дате ↑'),('date_desc','По дате ↓'),('name','По названию А–Я'),('name_desc','По названию Я–А')] if kind in ['future','past'] else [('name','По имени А–Я'),('name_desc','По имени Я–А')] %}
+        {% if kind in ['horses','jockeys'] %}
+          {% set choices = choices + [('age','По возрасту ↑'),('age_desc','По возрасту ↓')] %}
+        {% endif %}
+        {% if kind == 'jockeys' %}
+          {% set choices = choices + [('rating','По рейтингу ↓'),('rating_asc','По рейтингу ↑')] %}
+        {% endif %}
+        {% for value,label in choices %}
+          <option value="{{ value }}" {% if request.args.get('sort', 'date' if kind == 'future' else 'date_desc' if kind == 'past' else 'name') == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">
+      Найти
+    </button>
+    <a class="btn btn-outline-secondary" href="{{ url_for(request.endpoint) }}">
+      Сбросить
+    </a>
+  </form>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <span class="small text-muted">
+      Найдено записей: {{ total }}
+    </span>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ query_url(export='csv') }}">
+      ↓ Экспорт CSV
+    </a>
+  </div>
+  {% if weeks is defined %}
+    <div class="card">
+      <div class="calendar-tools">
+        <a class="btn btn-outline-secondary" href="{{ query_url(month=previous) }}" aria-label="Предыдущий месяц">
+          ←
+        </a>
+        <h2 class="mb-0">
+          {{ ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][month.month-1] }} {{ month.year }}
+        </h2>
+        <a class="btn btn-outline-secondary" href="{{ query_url(month=following) }}" aria-label="Следующий месяц">
+          →
+        </a>
+      </div>
+      <div class="calendar-scroll">
+        <div class="calendar">
+          {% for d in ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] %}
+            <div class="calendar-weekday">
+              {{ d }}
+            </div>
+          {% endfor %}
+          {% for week in weeks %}
+            {% for day in week %}
+              <div class="calendar-day {% if day.month != month.month %}outside{% endif %} {% if day == today %}is-today{% endif %}">
+                <span class="small">
+                  {{ day.day }}
+                </span>
+                {% for c in events if c.event_date == day %}
+                  <a class="calendar-event" href="{{ url_for('competitions.future_detail',comp_id=c.id) }}">
+                    {{ c.formatted_time }} · {{ c.title }}
+                  </a>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+      {% if not events %}
+        <div class="empty-state">
+          В этом месяце нет состязаний с выбранными фильтрами.
+        </div>
+      {% endif %}
+    </div>
+  {% elif items %}
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              {% if kind == 'owners' %}
+                <th>
+                  Владелец
+                </th>
+                <th>
+                  Телефон
+                </th>
+                <th>
+                  Адрес
+                </th>
+                <th>
+                  Лошадей
+                </th>
+              {% elif kind == 'horses' %}
+                <th>
+                  Лошадь
+                </th>
+                <th>
+                  Пол
+                </th>
+                <th>
+                  Возраст
+                </th>
+                <th>
+                  Владелец
+                </th>
+              {% elif kind == 'jockeys' %}
+                <th>
+                  Жокей
+                </th>
+                <th>
+                  Возраст
+                </th>
+                <th>
+                  Рейтинг
+                </th>
+                <th>
+                  Адрес
+                </th>
+              {% else %}
+                <th>
+                  Состязание
+                </th>
+                <th>
+                  Дата / время
+                </th>
+                <th>
+                  Место
+                </th>
+                <th>
+                  Участников
+                </th>
+                <th>
+                  Статус
+                </th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in items %}
+              <tr>
+                {% if kind == 'owners' %}
+                  <td>
+                    <a class="fw-semibold" href="{{ url_for('owners.detail_owner',owner_id=r.id) }}">
+                      {{ r.full_name }}
+                    </a>
+                  </td>
+                  <td>
+                    {{ r.phone or '—' }}
+                  </td>
+                  <td>
+                    {{ r.address or '—' }}
+                  </td>
+                  <td>
+                    <span class="badge bg-secondary">
+                      {{ r.horses|length }}
+                    </span>
+                  </td>
+                {% elif kind == 'horses' %}
+                  <td>
+                    <a class="fw-semibold" href="{{ url_for('horses.detail_horse',horse_id=r.id) }}">
+                      {{ r.nickname }}
+                    </a>
+                  </td>
+                  <td>
+                    {{ r.gender }}
+                  </td>
+                  <td>
+                    {{ r.age }}
+                  </td>
+                  <td>
+                    <a href="{{ url_for('owners.detail_owner',owner_id=r.owner.id) }}">
+                      {{ r.owner.full_name }}
+                    </a>
+                  </td>
+                {% elif kind == 'jockeys' %}
+                  <td>
+                    <a class="fw-semibold" href="{{ url_for('jockeys.detail_jockey',jockey_id=r.id) }}">
+                      {{ r.full_name }}
+                    </a>
+                  </td>
+                  <td>
+                    {{ r.age }}
+                  </td>
+                  <td>
+                    <span class="badge bg-secondary">
+                      {{ '%.1f'|format(r.rating) }}
+                    </span>
+                  </td>
+                  <td>
+                    {{ r.address or '—' }}
+                  </td>
+                {% else %}
+                  <td>
+                    <a class="fw-semibold" href="{{ url_for('competitions.future_detail' if kind == 'future' else 'competitions.past_detail',comp_id=r.id) }}">
+                      {{ r.title }}
+                    </a>
+                  </td>
+                  <td>
+                    {{ r.formatted_date }}
+                    <div class="small text-muted">
+                      {{ r.formatted_time }}
+                    </div>
+                  </td>
+                  <td>
+                    {{ r.location }}
+                  </td>
+                  <td>
+                    {{ r.results|length }}
+                  </td>
+                  <td>
+                    {% if kind == 'past' %}
+                      <span class="badge badge-completed">
+                        Завершено
+                      </span>
+                    {% elif r.event_date < today %}
+                      <span class="badge text-warning bg-secondary">
+                        Ожидает завершения
+                      </span>
+                    {% else %}
+                      <span class="badge badge-planned">
+                        {% if r.event_date == today %}
+                          Сегодня
+                        {% else %}
+                          Запланировано
+                        {% endif %}
+                      </span>
+                    {% endif %}
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <nav class="pagination-bar" aria-label="Страницы списка">
+      <span>
+        Страница {{ page }} из {{ pages }} · по 20 записей
+      </span>
+      <div class="d-flex gap-2">
+        {% if page > 1 %}
+          <a class="btn btn-outline-secondary" href="{{ query_url(page=page-1) }}">
+            ← Назад
+          </a>
+        {% endif %}
+        {% if page < pages %}
+          <a class="btn btn-outline-secondary" href="{{ query_url(page=page+1) }}">
+            Далее →
+          </a>
+        {% endif %}
+      </div>
+    </nav>
+  {% else %}
+    <div class="card empty-state">
+      <span class="fs-1" aria-hidden="true">
+        ⌕
+      </span>
+      <strong>
+        Записи не найдены
+      </strong>
+      <p>
+        Добавьте первую запись или измените условия поиска.
+      </p>
+      <a class="btn btn-outline-secondary" href="{{ url_for(request.endpoint) }}">
+        Сбросить фильтры
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}

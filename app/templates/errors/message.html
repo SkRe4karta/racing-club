@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}
+  Не удалось отправить форму — АИС «Скачки»
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <div class="card-body">
+      <h1>
+        Проверьте форму
+      </h1>
+      <p role="alert">
+        {{ message }}
+      </p>
+      <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+        Вернуться к форме
+      </button>
+    </div>
+  </div>
+{% endblock %}

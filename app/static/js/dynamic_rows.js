@@ -55,10 +55,10 @@ function toggleTimeInput(checkbox) {
     if (timeInput) {
         if (checkbox.checked) {
             timeInput.value = '';
-            timeInput.disabled = true;
+            timeInput.readOnly = true;
             timeInput.placeholder = 'Дисквалифицирован';
         } else {
-            timeInput.disabled = false;
+            timeInput.readOnly = false;
             timeInput.placeholder = 'например 02:04.50';
         }
     }

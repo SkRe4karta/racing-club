@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.env
+.env.*
+instance
+*.db
+*.sqlite*
+.aws
+.codex
+.agents
+.pytest_cache
+screenshots

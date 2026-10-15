@@ -5,9 +5,8 @@ from app.models import Owner, Horse, Jockey, Competition, Result
 def seed_database():
     app = create_app()
     with app.app_context():
-        # Очищаем существующие данные для чистого перезапуска
-        db.drop_all()
-        db.create_all()
+        if any(db.session.query(model).first() for model in (Owner, Horse, Jockey, Competition, Result)):
+            raise SystemExit("Демонстрационные данные разрешены только в пустой БД. Укажите отдельный DATABASE_URL.")
 
         print("Создание демонстрационных данных...")
 

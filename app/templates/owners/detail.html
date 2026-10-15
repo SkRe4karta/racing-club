@@ -1,90 +1,99 @@
 {% extends 'base.html' %}
-
-{% block title %}Владелец: {{ owner.full_name }} &mdash; АИС «Скачки»{% endblock %}
-
+{% block title %}
+  {{ owner.full_name }} — Владельцы
+{% endblock %}
 {% block content %}
-<div class="mb-4">
-    <a href="{{ url_for('owners.list_owners') }}" class="btn btn-outline-secondary btn-sm mb-3">
-        <i class="bi bi-arrow-left"></i> К списку владельцев
+  <div class="page-heading">
+    <div>
+      <div class="section-kicker">
+        КАРТОЧКА ВЛАДЕЛЬЦА
+      </div>
+      <h1>
+        {{ owner.full_name }}
+      </h1>
+      <p class="description mb-0">
+        Контактные данные и лошади клуба
+      </p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('owners.list_owners') }}">
+      ← Все владельцы
     </a>
-    <div class="card shadow-sm mb-4">
-        <div class="card-body p-4">
-            <div class="d-flex align-items-center mb-3">
-                <div class="bg-primary text-white rounded-circle p-3 me-3">
-                    <i class="bi bi-person fs-3"></i>
-                </div>
-                <div>
-                    <h2 class="h4 fw-bold mb-1">{{ owner.full_name }}</h2>
-                    <span class="text-muted">Карточка владельца лошадей</span>
-                </div>
-            </div>
-            <hr>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="text-muted small">Адрес проживания</div>
-                    <div class="fw-semibold">{{ owner.address or 'Не указан' }}</div>
-                </div>
-                <div class="col-md-6">
-                    <div class="text-muted small">Контактный телефон</div>
-                    <div class="fw-semibold">{{ owner.phone or 'Не указан' }}</div>
-                </div>
-            </div>
+  </div>
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <dt>
+            Телефон
+          </dt>
+          <dd>
+            {{ owner.phone or 'Не указан' }}
+          </dd>
         </div>
+        <div class="col-md-6">
+          <dt>
+            Адрес
+          </dt>
+          <dd>
+            {{ owner.address or 'Не указан' }}
+          </dd>
+        </div>
+      </div>
     </div>
-
-    <!-- Список принадлежащих лошадей -->
-    <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center py-3">
-            <h5 class="card-title mb-0 fw-bold">
-                <i class="bi bi-gem me-2 text-primary"></i>Принадлежащие лошади ({{ owner.horses|length }})
-            </h5>
-            <a href="{{ url_for('horses.add_horse') }}" class="btn btn-sm btn-primary">
-                <i class="bi bi-plus-lg"></i> Добавить лошадь
-            </a>
-        </div>
-        <div class="card-body p-0">
-            {% if owner.horses %}
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Кличка</th>
-                                <th>Пол</th>
-                                <th>Возраст</th>
-                                <th>Заездов всего</th>
-                                <th class="text-end">Действие</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for horse in owner.horses %}
-                                <tr>
-                                    <td>{{ loop.index }}</td>
-                                    <td class="fw-bold">
-                                        <a href="{{ url_for('horses.detail_horse', horse_id=horse.id) }}" class="text-decoration-none">
-                                            {{ horse.nickname }}
-                                        </a>
-                                    </td>
-                                    <td>{{ horse.gender }}</td>
-                                    <td>{{ horse.age }} лет</td>
-                                    <td>{{ horse.results|length }}</td>
-                                    <td class="text-end">
-                                        <a href="{{ url_for('horses.detail_horse', horse_id=horse.id) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye"></i> Карточка лошади
-                                        </a>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="p-4 text-center text-muted">
-                    <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
-                    У данного владельца пока нет зарегистрированных лошадей в клубе.
-                </div>
-            {% endif %}
-        </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h2 class="h5 mb-0">
+        Лошади владельца
+      </h2>
+      <span class="badge bg-secondary">
+        {{ owner.horses|length }}
+      </span>
     </div>
-</div>
+    {% if owner.horses %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>
+                Кличка
+              </th>
+              <th>
+                Пол
+              </th>
+              <th>
+                Возраст
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in owner.horses|sort(attribute='nickname') %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('horses.detail_horse',horse_id=h.id) }}">
+                    {{ h.nickname }}
+                  </a>
+                </td>
+                <td>
+                  {{ h.gender }}
+                </td>
+                <td>
+                  {{ h.age }} лет
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        У владельца пока нет зарегистрированных лошадей.
+        <div class="mt-3">
+          <a class="btn btn-primary" href="{{ url_for('horses.add_horse') }}">
+            Добавить лошадь
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
 {% endblock %}

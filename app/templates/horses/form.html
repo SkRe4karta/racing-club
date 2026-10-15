@@ -8,13 +8,13 @@
         <div class="card shadow-sm">
             <div class="card-header py-3">
                 <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-gem me-2 text-primary"></i>Регистрация новой лошади
+                    Регистрация новой лошади
                 </h5>
             </div>
             <div class="card-body p-4">
                 {% if not owners %}
                     <div class="alert alert-warning" role="alert">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
+
                         В системе пока нет зарегистрированных владельцев! Сначала добавьте хотя бы одного владельца.
                         <div class="mt-2">
                             <a href="{{ url_for('owners.add_owner') }}" class="btn btn-sm btn-warning">Добавить владельца</a>
@@ -22,10 +22,10 @@
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('horses.add_horse') }}">
+                <form method="POST" action="{{ url_for('horses.add_horse') }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
                     <div class="mb-3">
                         <label for="nickname" class="form-label fw-semibold">Кличка лошади <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nickname" name="nickname" value="{{ nickname or '' }}" required autofocus placeholder="например Буцефал">
+                        <input type="text" class="form-control" id="nickname" name="nickname" maxlength="100" value="{{ nickname or '' }}" required autofocus placeholder="например Буцефал">
                     </div>
 
                     <div class="row mb-3">
@@ -58,10 +58,10 @@
 
                     <div class="d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('horses.list_horses') }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left"></i> Назад к списку
+                             Назад к списку
                         </a>
                         <button type="submit" class="btn btn-primary px-4" {% if not owners %}disabled{% endif %}>
-                            <i class="bi bi-check-lg"></i> Сохранить
+                             Сохранить
                         </button>
                     </div>
                 </form>

@@ -1,6 +1,7 @@
-from datetime import datetime, date, time
+from itertools import zip_longest
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from app import db
+from sqlalchemy.orm import selectinload
 from app.models import Competition, Result, Horse, Jockey
 from app.services import (
     create_future_competition,
@@ -10,17 +11,25 @@ from app.services import (
 
 competitions_bp = Blueprint('competitions', __name__)
 
+
+def load_competition(comp_id):
+    return Competition.query.options(
+        selectinload(Competition.results).selectinload(Result.horse).selectinload(Horse.owner),
+        selectinload(Competition.results).selectinload(Result.jockey),
+    ).filter_by(id=comp_id).first()
+
+
 # --- Будущие состязания ---
 
 @competitions_bp.route('/future')
 def future_list():
-    competitions = Competition.query.filter_by(status='planned').order_by(Competition.event_date.asc(), Competition.event_time.asc()).all()
-    return render_template('competitions/future_list.html', competitions=competitions)
+    from app.web import listing
+    return listing('future')
 
 
 @competitions_bp.route('/future/<int:comp_id>')
 def future_detail(comp_id):
-    competition = db.session.get(Competition, comp_id)
+    competition = load_competition(comp_id)
     if not competition or competition.status != 'planned':
         flash("Запланированное состязание не найдено.", "warning")
         return redirect(url_for('competitions.future_list'))
@@ -44,7 +53,7 @@ def future_add():
         jockey_ids = request.form.getlist('jockey_id[]')
 
         participants = []
-        for h_id, j_id in zip(horse_ids, jockey_ids):
+        for h_id, j_id in zip_longest(horse_ids, jockey_ids, fillvalue=''):
             if h_id or j_id:
                 participants.append({'horse_id': h_id, 'jockey_id': j_id})
 
@@ -121,13 +130,13 @@ def future_add():
 
 @competitions_bp.route('/past')
 def past_list():
-    competitions = Competition.query.filter_by(status='completed').order_by(Competition.event_date.desc(), Competition.event_time.desc()).all()
-    return render_template('competitions/past_list.html', competitions=competitions)
+    from app.web import listing
+    return listing('past')
 
 
 @competitions_bp.route('/past/<int:comp_id>')
 def past_detail(comp_id):
-    competition = db.session.get(Competition, comp_id)
+    competition = load_competition(comp_id)
     if not competition or competition.status != 'completed':
         flash("Прошедшее состязание не найдено.", "warning")
         return redirect(url_for('competitions.past_list'))
@@ -153,13 +162,12 @@ def complete(comp_id=None):
             except ValueError:
                 pass
 
-    planned_comps = Competition.query.filter_by(status='planned').order_by(Competition.event_date.asc()).all()
-
     if not comp_id:
+        planned_comps = Competition.query.options(selectinload(Competition.results)).filter_by(status='planned').order_by(Competition.event_date.asc()).all()
         # Если не выбран ID, отображаем страницу выбора состязания
         return render_template('competitions/complete_select.html', planned_comps=planned_comps)
 
-    competition = db.session.get(Competition, comp_id)
+    competition = load_competition(comp_id)
     if not competition:
         flash("Состязание не найдено.", "danger")
         return redirect(url_for('competitions.past_list'))
@@ -168,7 +176,7 @@ def complete(comp_id=None):
         flash("Результаты завершенного состязания изменять нельзя.", "danger")
         return redirect(url_for('competitions.past_detail', comp_id=competition.id))
 
-    results = Result.query.filter_by(competition_id=competition.id).all()
+    results = competition.results
 
     if request.method == 'POST':
         # Сбор введенных результатов
@@ -214,7 +222,7 @@ def past_add():
         jockey_ids = request.form.getlist('jockey_id[]')
         time_inputs = request.form.getlist('finish_time[]')
         # Для чекбоксов в динамических строках собираем по индексам
-        row_count = len(horse_ids)
+        row_count = max(len(horse_ids), len(jockey_ids), len(time_inputs))
 
         participants = []
         for i in range(row_count):

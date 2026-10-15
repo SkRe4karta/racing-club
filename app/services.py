@@ -1,5 +1,7 @@
-import re
-from datetime import datetime, date, time
+import math
+from functools import wraps
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import update
 from app import db
 from app.models import Competition, Result, Horse, Jockey
 
@@ -26,19 +28,31 @@ def parse_time_input(time_str: str) -> float:
             if minutes < 0 or seconds < 0 or seconds >= 60:
                 raise ValueError("Некорректно указано время результата")
             total = minutes * 60 + seconds
-            if total <= 0:
+            if not math.isfinite(total) or round(total, 2) <= 0:
                 raise ValueError("Некорректно указано время результата")
             return round(total, 2)
-        except ValueError:
+        except (ValueError, OverflowError):
             raise ValueError("Некорректно указано время результата")
     else:
         try:
             total = float(val)
-            if total <= 0:
+            if not math.isfinite(total) or round(total, 2) <= 0:
                 raise ValueError("Некорректно указано время результата")
             return round(total, 2)
-        except ValueError:
+        except (ValueError, OverflowError):
             raise ValueError("Некорректно указано время результата")
+
+
+def participant_id(value):
+    """Проверка диапазона Integer фактически выбранной СУБД."""
+    try:
+        identifier = int(value)
+        limit = 2147483647 if db.engine.dialect.name == 'postgresql' else 9223372036854775807
+        if not 1 <= identifier <= limit:
+            raise ValueError
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("Выбрана несуществующая лошадь или жокей") from None
+    return identifier
 
 
 def create_future_competition(title: str, event_date_val, event_time_val, location: str, participants: list):
@@ -70,8 +84,8 @@ def create_future_competition(title: str, event_date_val, event_time_val, locati
         if not j_id:
             raise ValueError("Для выбранной лошади необходимо указать жокея")
 
-        h_id = int(h_id)
-        j_id = int(j_id)
+        h_id = participant_id(h_id)
+        j_id = participant_id(j_id)
 
         if h_id in horse_ids:
             horse = db.session.get(Horse, h_id)
@@ -81,6 +95,9 @@ def create_future_competition(title: str, event_date_val, event_time_val, locati
             jockey = db.session.get(Jockey, j_id)
             name = jockey.full_name if jockey else f"ID {j_id}"
             raise ValueError(f"Жокей «{name}» уже заявлен на это состязание")
+
+        if not db.session.get(Horse, h_id) or not db.session.get(Jockey, j_id):
+            raise ValueError("Выбрана несуществующая лошадь или жокей")
 
         horse_ids.add(h_id)
         jockey_ids.add(j_id)
@@ -115,11 +132,11 @@ def complete_planned_competition(competition_id: int, results_data: dict):
     Завершает ранее запланированное состязание.
     results_data: словарь {result_id: {'time_str': str, 'is_disqualified': bool}}
     """
-    competition = db.session.get(Competition, competition_id)
+    competition = db.session.execute(db.select(Competition).where(Competition.id == competition_id).with_for_update().execution_options(populate_existing=True)).scalar_one_or_none()
     if not competition:
         raise ValueError("Состязание не найдено")
     
-    if competition.is_completed:
+    if competition.status != 'planned':
         raise ValueError("Результаты завершенного состязания изменять нельзя")
 
     results = Result.query.filter_by(competition_id=competition.id).all()
@@ -138,6 +155,9 @@ def complete_planned_competition(competition_id: int, results_data: dict):
 
         if not is_disq and not time_str:
             raise ValueError("Для каждого участника необходимо указать время или дисквалификацию")
+
+        if is_disq and time_str:
+            raise ValueError("Нельзя одновременно указать время и дисквалификацию")
 
         parsed_time = None
         if not is_disq:
@@ -163,6 +183,16 @@ def complete_planned_competition(competition_id: int, results_data: dict):
         else:
             pr['place'] = current_place
         current_place += 1
+
+    # Compare-and-set защищает от двух одновременных завершений и в SQLite,
+    # где SELECT FOR UPDATE не поддерживается. Обновление входит в общую транзакцию.
+    changed = db.session.execute(
+        update(Competition).where(
+            Competition.id == competition.id, Competition.status == 'planned'
+        ).values(status='completed').execution_options(synchronize_session=False)
+    )
+    if changed.rowcount != 1:
+        raise ValueError("Результаты завершенного состязания изменять нельзя")
 
     # Записываем в базу
     for pr in prepared_results:
@@ -205,8 +235,8 @@ def create_completed_competition_direct(title: str, event_date_val, event_time_v
         if not j_id:
             raise ValueError("Для выбранной лошади необходимо указать жокея")
 
-        h_id = int(h_id)
-        j_id = int(j_id)
+        h_id = participant_id(h_id)
+        j_id = participant_id(j_id)
 
         if h_id in horse_ids:
             horse = db.session.get(Horse, h_id)
@@ -217,6 +247,9 @@ def create_completed_competition_direct(title: str, event_date_val, event_time_v
             name = jockey.full_name if jockey else f"ID {j_id}"
             raise ValueError(f"Жокей «{name}» уже заявлен на это состязание")
 
+        if not db.session.get(Horse, h_id) or not db.session.get(Jockey, j_id):
+            raise ValueError("Выбрана несуществующая лошадь или жокей")
+
         horse_ids.add(h_id)
         jockey_ids.add(j_id)
 
@@ -225,6 +258,9 @@ def create_completed_competition_direct(title: str, event_date_val, event_time_v
 
         if not is_disq and not time_str:
             raise ValueError("Для каждого участника необходимо указать время или дисквалификацию")
+
+        if is_disq and time_str:
+            raise ValueError("Нельзя одновременно указать время и дисквалификацию")
 
         parsed_time = None
         if not is_disq:
@@ -272,3 +308,21 @@ def create_completed_competition_direct(title: str, event_date_val, event_time_v
 
     db.session.commit()
     return competition
+
+
+def atomic(operation):
+    @wraps(operation)
+    def wrapped(*args, **kwargs):
+        try:
+            return operation(*args, **kwargs)
+        except SQLAlchemyError as exc:
+            db.session.rollback()
+            raise ValueError("Не удалось сохранить состязание. Проверьте участников и повторите попытку.") from exc
+        except Exception:
+            db.session.rollback()
+            raise
+    return wrapped
+
+create_future_competition = atomic(create_future_competition)
+complete_planned_competition = atomic(complete_planned_competition)
+create_completed_competition_direct = atomic(create_completed_competition_direct)

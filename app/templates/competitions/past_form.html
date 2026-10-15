@@ -8,23 +8,23 @@
         <div class="card shadow-sm">
             <div class="card-header py-3 bg-light">
                 <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-clock-history me-2 text-primary"></i>Внесение состоявшегося состязания с результатами
+                    Внесение состоявшегося состязания с результатами
                 </h5>
             </div>
             <div class="card-body p-4">
                 {% if not horses or not jockeys %}
                     <div class="alert alert-warning" role="alert">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
+
                         Для внесения состязания необходимо наличие зарегистрированных лошадей и жокеев.
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('competitions.past_add') }}">
+                <form method="POST" action="{{ url_for('competitions.past_add') }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
                     <!-- Параметры состязания -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
                             <label for="title" class="form-label fw-semibold">Наименование состязания <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="title" name="title" value="{{ title or '' }}" required autofocus placeholder="например Летний Кубок">
+                            <input type="text" class="form-control" id="title" name="title" maxlength="200" value="{{ title or '' }}" required autofocus placeholder="например Летний Кубок">
                         </div>
                         <div class="col-md-4">
                             <label for="event_date" class="form-label fw-semibold">Дата проведения <span class="text-danger">*</span></label>
@@ -36,7 +36,7 @@
                         </div>
                         <div class="col-md-4">
                             <label for="location" class="form-label fw-semibold">Ипподром (место) <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="location" name="location" value="{{ location or '' }}" required placeholder="например Казанский ипподром">
+                            <input type="text" class="form-control" id="location" name="location" maxlength="200" value="{{ location or '' }}" required placeholder="например Казанский ипподром">
                         </div>
                     </div>
 
@@ -50,7 +50,7 @@
                                 <span class="text-muted small">Укажите пару «лошадь &mdash; жокей» и введите время либо отметьте дисквалификацию</span>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="addParticipantRow('past-participants-container', 'past-participant-template')">
-                                <i class="bi bi-plus-circle"></i> Добавить участника
+                                 Добавить участника
                             </button>
                         </div>
 
@@ -90,7 +90,7 @@
                                                    class="form-control form-control-sm font-monospace time-input"
                                                    placeholder="например 02:04.50"
                                                    value="{{ p.time_str or '' }}"
-                                                   {% if p.is_disqualified %}disabled{% endif %}>
+                                                   {% if p.is_disqualified %}readonly{% endif %}>
                                         </div>
                                         <div class="col-auto text-center mt-3">
                                             <div class="form-check">
@@ -106,8 +106,8 @@
                                             </div>
                                         </div>
                                         <div class="col-auto text-end mt-3">
-                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParticipantRow(this)" title="Удалить строку">
-                                                <i class="bi bi-trash"></i>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParticipantRow(this)" title="Удалить строку" aria-label="Удалить участника">
+                                                <span aria-hidden="true">×</span>
                                             </button>
                                         </div>
                                     </div>
@@ -118,10 +118,10 @@
 
                     <div class="d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('competitions.past_list') }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left"></i> Назад
+                             Назад
                         </a>
                         <button type="submit" class="btn btn-success px-4" {% if not horses or not jockeys %}disabled{% endif %}>
-                            <i class="bi bi-check-lg"></i> Сохранить прошедшее состязание
+                             Сохранить прошедшее состязание
                         </button>
                     </div>
                 </form>
@@ -175,8 +175,8 @@
                 </div>
             </div>
             <div class="col-auto text-end mt-3">
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParticipantRow(this)" title="Удалить строку">
-                    <i class="bi bi-trash"></i>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParticipantRow(this)" title="Удалить строку" aria-label="Удалить участника">
+                    <span aria-hidden="true">×</span>
                 </button>
             </div>
         </div>

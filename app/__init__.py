@@ -1,4 +1,5 @@
 import os
+import secrets
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
@@ -8,8 +9,8 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
     
     app.config.from_mapping(
-        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-race-club-2026'),
-        SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(app.instance_path, 'races.db')}",
+        SECRET_KEY=os.environ.get('SECRET_KEY') or secrets.token_hex(32),
+        SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL") or f"sqlite:///{os.path.join(app.instance_path, 'races.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
 
@@ -23,6 +24,9 @@ def create_app(test_config=None):
         pass
 
     db.init_app(app)
+
+    from app.web import setup_web
+    setup_web(app)
 
     # Регистрация маршрутов
     from app.routes.main import main_bp
