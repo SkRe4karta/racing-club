@@ -107,6 +107,38 @@ textarea.form-control { height: auto; min-height: 112px; resize: vertical; }
 }
 .segmented-control > a:hover, .segmented-control > button:hover { text-decoration: none; border-color: var(--muted); }
 .segmented-control > [aria-current=page], .segmented-control > [aria-pressed=true] { background: #91ff79; color: #090909; border-color: #91ff79; }
+.segmented-control.competition-switch { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; max-width: 560px; }
+.competition-switch > a { min-width: 0; min-height: 48px; padding: 12px 8px; }
+.race-calendar { overflow: hidden; margin-bottom: 24px; }
+.race-calendar-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 20px; }
+.race-calendar-tools h2 { margin: 0; font-size: 20px; }
+.race-month-form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.race-month-form .form-control { width: auto; min-width: 0; }
+.race-calendar-legend { margin: 0; padding: 0 20px 20px; color: var(--muted); font-size: 13px; }
+.race-calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); }
+.race-weekday { padding: 12px 4px; background: var(--soft); color: var(--muted); text-align: center; font-size: 12px; }
+.race-day { min-width: 0; min-height: 120px; padding: 8px; border-top: 1px solid var(--line); border-right: 1px solid var(--line); }
+.race-day.outside { background: var(--soft); color: var(--muted); }
+.race-day.is-selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.race-day-number { display: inline-flex; min-width: 30px; min-height: 34px; justify-content: center; align-items: center; font-weight: 700; }
+.race-event { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin-top: 6px; padding: 8px; border-left: 3px solid var(--accent); background: var(--soft); font-size: 12px; overflow-wrap: anywhere; }
+.race-event.is-completed { border-left-color: var(--muted); }
+.race-event-status { font-size: 10px; }
+.race-status-symbol { display: none; }
+.race-event time { font-weight: 700; }
+@media (max-width: 600px) {
+  .race-day { min-height: 90px; padding: 3px; }
+  .race-event { padding: 4px 2px; font-size: 10px; border-left-width: 2px; }
+  .race-event-status { font-size: 12px; }
+  .race-status-text { display: none; }
+  .race-status-symbol { display: inline; }
+  .race-event-title { display: none; }
+  .race-calendar-tools { padding: 14px; }
+  .race-month-form { width: 100%; }
+  .race-month-form label { flex-basis: 100%; }
+  #day-events .list-row { flex-wrap: wrap; }
+  #day-events .list-copy { flex-basis: 65%; }
+}
 .theme-options { margin: 8px 0; }
 .table-responsive { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }

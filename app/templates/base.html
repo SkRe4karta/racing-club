@@ -16,8 +16,8 @@
 <header class="portal-header">
 <a class="wordmark" href="{{ url_for('main.index') }}" aria-label="Racing Club — главная"><span class="brand-symbol" aria-hidden="true">↗</span> RACING<span>CLUB</span><i aria-hidden="true">®</i></a>
 <nav class="public-nav" id="public-nav" aria-label="Публичные разделы">
-{% for endpoint,label in [('main.index','Главная'),('competitions.future_list','Соревнования'),('horses.list_horses','Лошади'),('jockeys.list_jockeys','Жокеи'),('analytics.index','Рейтинги'),('predictions.index','Прогнозы')] %}
-<a href="{{ url_for(endpoint) }}" {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>{{ label }}</a>
+{% for endpoint,label in [('main.index','Главная'),('competitions.index','Соревнования'),('horses.list_horses','Лошади'),('jockeys.list_jockeys','Жокеи'),('analytics.index','Рейтинги'),('predictions.index','Прогнозы')] %}
+<a href="{{ url_for(endpoint) }}" {% if request.endpoint == endpoint or (endpoint == 'competitions.index' and request.blueprint == 'competitions') %}aria-current="page"{% endif %}>{{ label }}</a>
 {% endfor %}
 <a class="mobile-account-link" href="{{ cabinet_url if current_user.is_authenticated else url_for('auth.login') }}">{{ 'Кабинет' if current_user.is_authenticated else 'Войти' }} ↗</a>
 {% if not current_user.is_authenticated %}<a class="mobile-account-link mobile-register-link" href="{{ url_for('auth.register') }}">Регистрация ↗</a>{% endif %}
@@ -51,7 +51,7 @@
 {% block content %}{% endblock %}
 </main>
 <footer class="portal-footer">
-<div class="footer-main"><div><a class="wordmark" href="{{ url_for('main.index') }}">RACING<span>CLUB</span> ↗</a><p>Конный спорт. Люди. Результаты.</p></div><nav aria-label="Дополнительные разделы"><a href="{{ url_for('owners.list_owners') }}">Владельцы</a><a href="{{ url_for('competitions.future_list', view='calendar') }}">Календарь</a><a href="{{ url_for('competitions.past_list') }}">Результаты</a><a href="{{ url_for('analytics.index') }}">Статистика</a></nav></div>
+<div class="footer-main"><div><a class="wordmark" href="{{ url_for('main.index') }}">RACING<span>CLUB</span> ↗</a><p>Конный спорт. Люди. Результаты.</p></div><nav aria-label="Дополнительные разделы"><a href="{{ url_for('owners.list_owners') }}">Владельцы</a><a href="{{ url_for('competitions.index', view='calendar') }}">Календарь</a><a href="{{ url_for('competitions.index',view='past') }}">Результаты</a><a href="{{ url_for('analytics.index') }}">Статистика</a></nav></div>
 <div class="footer-bottom"><span>Racing Club · {{ config.VERSION }} · Бесплатная спортивная аналитика</span><span>Без денежных ставок и призов</span></div>
 <small class="photo-credit">Фото «Horse Race Finish Line»: <a href="https://commons.wikimedia.org/wiki/File:Horse_Race_Finish_Line_(11888565543).jpg">MJ Boswell</a> / <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>. Монохромное оформление и кадрирование.</small>
 </footer>

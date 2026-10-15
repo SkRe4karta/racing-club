@@ -50,21 +50,25 @@ def dashboard():
         query = query.where(Horse.owner_id == current_user.owner_id)
     elif current_user.role == 'JOCKEY':
         query = query.where(Result.jockey_id == current_user.jockey_id)
-    results = db.session.scalars(query.join(Result.competition).order_by(
-        Competition.event_date.desc(), Competition.event_time.desc())).all()
-    applications = db.session.scalars(application_query().order_by(Application.created_at.desc())).all()
+    from app.analytics import history_context, horse_cards_from_database
+    history = history_context(db.session.query(Result).filter(Result.id.in_(query.with_only_columns(Result.id))))
+    applications = db.session.scalars(application_query().where(
+        Application.status.not_in(['rejected', 'cancelled'])).order_by(Application.created_at.desc()).limit(12)).all()
     notifications = db.session.scalars(select(Notification).where(Notification.user_id == current_user.id)
                                        .order_by(Notification.id.desc()).limit(5)).all()
-    upcoming = db.session.scalars(select(Competition).where(Competition.status == 'planned')
-                                  .order_by(Competition.event_date, Competition.event_time)).all()
-    upcoming = [item for item in upcoming if registration_open(item)]
-    from app.analytics import horse_card_data, sporting_summary
+    upcoming = db.session.scalars(select(Competition).where(Competition.status == 'planned',
+        Competition.event_date >= utc_now().date()).order_by(Competition.event_date, Competition.event_time).limit(12)).all()
+    upcoming = [item for item in upcoming if registration_open(item)][:6]
     from app.admin_services import start_at
-    next_starts = [row for row in results if row.competition.status == 'planned' and start_at(row.competition) > utc_now()]
-    next_starts.sort(key=lambda row: start_at(row.competition))
-    return render_template('cabinet/dashboard.html', horses=horses, results=results,
-                           horse_metrics=horse_card_data(horses, results), sport=sporting_summary(results), next_starts=next_starts,
-                           applications=applications, notifications=notifications, upcoming=upcoming)
+    next_starts = db.session.scalars(query.join(Result.competition).where(Competition.status == 'planned',
+        Competition.event_date >= utc_now().date()).order_by(Competition.event_date, Competition.event_time).limit(12)).all()
+    next_starts = [row for row in next_starts if start_at(row.competition) > utc_now()][:6]
+    metric = history['history_metric']
+    return render_template('cabinet/dashboard.html', horses=horses, **history,
+                           horse_metrics=horse_cards_from_database(horses),
+                           sport=dict(starts=metric['count'], wins=metric['wins'], podium=metric['podium']),
+                           next_starts=next_starts, applications=applications,
+                           notifications=notifications, upcoming=upcoming)
 
 
 @cabinet_bp.get('/applications')

@@ -101,7 +101,7 @@
   <p class="small text-muted mt-3">
     Результаты зафиксированы. Изменение завершённого состязания недоступно.
   </p>
-  <a class="btn btn-outline-secondary" href="{{ url_for('competitions.past_list') }}">
-    ← Все прошедшие состязания
+  <a class="btn btn-outline-secondary" href="{{ url_for('competitions.index',view='calendar',month=request.args.get('month'),day=request.args.get('day','')) if request.args.get('view') == 'calendar' else url_for('competitions.index',view='past') }}">
+    ← {{ 'Календарь соревнований' if request.args.get('view') == 'calendar' else 'Все прошедшие соревнования' }}
   </a>
 {% endblock %}

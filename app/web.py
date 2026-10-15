@@ -1,5 +1,4 @@
 """Общие средства представления: фильтры, экспорт и защита форм."""
-import calendar
 import csv
 import io
 from datetime import date
@@ -41,6 +40,9 @@ def csv_response(headers, rows, filename):
 
 
 def listing(kind):
+    if kind in ('future', 'past'):
+        from app.competition_views import browse
+        return browse(kind)
     models = {'owners': Owner, 'horses': Horse, 'jockeys': Jockey, 'future': Competition, 'past': Competition}
     model = models[kind]
     query = model.query
@@ -95,20 +97,6 @@ def listing(kind):
         'past': 'competitions/past_list.html',
     }.get(kind, f'{kind}/list.html')
     context = {'kind': kind}
-    if kind == 'future' and request.args.get('view') == 'calendar':
-        try:
-            year, month = map(int, request.args.get('month', date.today().strftime('%Y-%m')).split('-'))
-            first = date(year, month, 1)
-            if year < 2 or year > 9998:
-                raise ValueError
-        except (ValueError, OverflowError):
-            first = date.today().replace(day=1)
-        prev = (first.replace(day=1).toordinal() - 1)
-        nxt = date(first.year + (first.month == 12), first.month % 12 + 1, 1)
-        context.update(weeks=calendar.Calendar().monthdatescalendar(first.year, first.month), month=first,
-                       previous=date.fromordinal(prev).strftime('%Y-%m'), following=nxt.strftime('%Y-%m'),
-                       events=query.filter(Competition.event_date >= first, Competition.event_date < nxt).all())
-        return render_template(template, total=len(context['events']), **context)
     page = max(1, request.args.get('page', 1, type=int))
     total = query.count()
     pages = max(1, (total + 19) // 20)
@@ -151,5 +139,5 @@ def setup_web(app):
     @app.get('/competitions/<int:comp_id>/results.csv')
     def export_results(comp_id):
         comp = db.get_or_404(Competition, comp_id)
-        rows = sorted(comp.results, key=lambda r:(r.place is None, r.place or 0, r.id))
+        rows = sorted(db.session.scalars(db.select(Result).where(Result.competition_id == comp.id).options(selectinload(Result.horse), selectinload(Result.jockey))).all(), key=lambda r:(r.place is None, r.place or 0, r.id))
         return csv_response(['Место','Лошадь','Жокей','Время','Статус'], [(r.place,r.horse.nickname,r.jockey.full_name,r.formatted_finish_time,'Дисквалификация' if r.is_disqualified else 'Не финишировал (DNF)' if r.did_not_finish else 'Завершено' if comp.is_completed else 'Заявлен') for r in rows], f'results-{comp.id}')

@@ -80,14 +80,16 @@ def detail_horse(horse_id):
         return redirect(url_for('horses.list_horses'))
     
     # Получаем историю состязаний лошади
-    results = filter_history(Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(horse_id=horse.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc())).all()
+    history_query = filter_history(Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(horse_id=horse.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc()))
+    from app.analytics import history_context
+    history = history_context(history_query)
     from app.models import Application
     from app.permissions import can
     applications = []
     if can('manage_horse', horse):
-        applications = db.session.scalars(db.select(Application).where(Application.horse_id == horse.id)
-            .options(selectinload(Application.competition)).order_by(Application.created_at.desc())).all()
-    return render_template('horses/detail.html', horse=horse, results=results, applications=applications)
+        applications = db.session.scalars(db.select(Application).where(Application.horse_id == horse.id, Application.status.not_in(['rejected', 'cancelled']))
+            .options(selectinload(Application.competition)).order_by(Application.created_at.desc()).limit(30)).all()
+    return render_template('horses/detail.html', horse=horse, **history, applications=applications)
 
 
 @horses_bp.route('/<int:horse_id>/edit', methods=['GET', 'POST'])

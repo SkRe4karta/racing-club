@@ -26,7 +26,7 @@ def create_app(test_config=None):
         LOGIN_LIMIT=5,
         LOGIN_IP_LIMIT=30,
         REGISTER_LIMIT=10,
-        VERSION='2.0.0-alpha.4',
+        VERSION='2.0.0-beta.1',
         CLUB_TIMEZONE='Europe/Moscow',
     )
 

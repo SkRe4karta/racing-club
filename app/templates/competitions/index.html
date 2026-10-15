@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% macro status(comp) %}<span class="badge {{ 'badge-completed' if comp.is_completed else 'badge-planned' }}">{{ 'Завершено' if comp.is_completed else 'Ожидает завершения' if comp.event_date < today else 'Запланировано' }}</span>{% endmacro %}
+{% macro event_link(comp) %}{{ url_for('competitions.past_detail' if comp.is_completed else 'competitions.future_detail', comp_id=comp.id, **({'view':'calendar','month':month.strftime('%Y-%m'),'day':selected_day.isoformat()} if view == 'calendar' else {})) }}{% endmacro %}
+{% block title %}Соревнования — Racing Club{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">СТАРТЫ И РЕЗУЛЬТАТЫ</span><h1>Соревнования</h1><p>Будущие старты, итоговые протоколы и единый календарь клуба.</p></div>
+{% if can('manage_competitions') %}<div class="card-actions"><a class="btn btn-primary" href="{{ url_for('competitions.future_add') }}">Создать соревнование ↗</a><a class="btn btn-outline-secondary" href="{{ url_for('competitions.complete') }}">Внести результаты</a></div>{% endif %}</div>
+<nav class="segmented-control competition-switch" aria-label="Режим соревнований">
+{% for mode,label in [('future','Будущие'),('past','Прошедшие'),('calendar','Календарь')] %}<a href="{{ browse_url(mode) }}" {% if view == mode %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+</nav>
+<form class="filters" method="get" action="{{ url_for('competitions.index') }}">
+<input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="month" value="{{ month.strftime('%Y-%m') }}">
+<div class="filter-field"><label for="q">Название</label><input class="form-control" id="q" name="q" type="search" value="{{ request.args.get('q','') }}" placeholder="Поиск…"></div>
+<div class="filter-field"><label for="date">Дата</label><input class="form-control" id="date" name="date" type="date" value="{{ request.args.get('date','') }}"></div>
+<div class="filter-field"><label for="location">Место</label><input class="form-control" id="location" name="location" value="{{ request.args.get('location','') }}" placeholder="Ипподром"></div>
+<div class="filter-field"><label for="sort">Сортировка</label><select class="form-select" id="sort" name="sort">{% for value,label in [('date','По дате ↑'),('date_desc','По дате ↓'),('name','По названию А–Я'),('name_desc','По названию Я–А')] %}<option value="{{ value }}" {% if sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+<div class="filter-actions"><button class="btn btn-primary" type="submit">Найти</button><a class="btn btn-outline-secondary" href="{{ url_for('competitions.index',view=view,month=month.strftime('%Y-%m')) }}">Сбросить</a></div>
+</form>
+<div class="section-heading"><p class="text-muted" id="competition-total" data-total="{{ total }}">Найдено записей: {{ total }}{% if view == 'calendar' %} · В месяце: {{ events|length }}{% endif %}</p><a class="btn btn-outline-secondary" href="{{ browse_url(export='csv') }}">↓ Экспорт CSV</a></div>
+{% if view == 'calendar' %}
+<section class="card race-calendar" aria-labelledby="calendar-heading">
+<div class="race-calendar-tools"><div class="card-actions"><a class="btn btn-outline-secondary" href="{{ browse_url(month=previous,day='') }}" aria-label="Предыдущий месяц">←</a><h2 id="calendar-heading">{{ month_label }}</h2><a class="btn btn-outline-secondary" href="{{ browse_url(month=following,day='') }}" aria-label="Следующий месяц">→</a></div>
+<form method="get" action="{{ url_for('competitions.index') }}" class="race-month-form"><input type="hidden" name="view" value="calendar">{% for key in ['q','location','date','sort'] %}{% if request.args.get(key) %}<input type="hidden" name="{{ key }}" value="{{ request.args[key] }}">{% endif %}{% endfor %}<label for="calendar-month">Месяц и год</label><input class="form-control" id="calendar-month" name="month" type="month" min="0002-01" max="9998-12" value="{{ month.strftime('%Y-%m') }}"><button class="btn btn-outline-secondary" type="submit">Перейти</button></form></div>
+<p class="race-calendar-legend">● Запланировано · ✓ Завершено. Выберите день, чтобы увидеть все его старты.</p>
+<div class="race-calendar-grid">
+{% for weekday in ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] %}<div class="race-weekday">{{ weekday }}</div>{% endfor %}
+{% for week in weeks %}{% for day in week %}<div class="race-day {{ 'outside' if day.month != month.month else '' }} {{ 'is-selected' if day == selected_day else '' }}">
+{% if day.month == month.month %}<a class="race-day-number" href="{{ browse_url(day=day.isoformat()) }}#day-events" aria-label="{{ day.strftime('%d.%m.%Y') }} · событий {{ by_day.get(day,[])|length }}" {% if day == selected_day %}aria-current="date"{% endif %}>{{ day.day }}</a>
+{% for comp,participants in by_day.get(day,[]) %}<a aria-label="{{ comp.formatted_time }} · {{ comp.title }} · {{ 'Завершено' if comp.is_completed else 'Запланировано' }}" data-competition-id="{{ comp.id }}" class="race-event {{ 'is-completed' if comp.is_completed else 'is-planned' }}" href="{{ event_link(comp) }}"><span class="race-event-status"><span class="race-status-text">{{ '✓ Завершено' if comp.is_completed else '● Запланировано' }}</span><span class="race-status-symbol" aria-hidden="true">{{ '✓' if comp.is_completed else '●' }}</span></span><time>{{ comp.formatted_time }}</time><span class="race-event-title">{{ comp.title }}</span></a>{% endfor %}
+{% else %}<span class="race-day-number">{{ day.day }}</span>{% endif %}</div>{% endfor %}{% endfor %}
+</div>
+{% if not events %}<p class="empty-state">В этом месяце нет соревнований с выбранными фильтрами.</p>{% endif %}
+</section>
+<section class="panel dashboard-section" id="day-events"><h2>События {{ selected_day.strftime('%d.%m.%Y') }}</h2><div class="structured-list">{% for comp,participants in by_day.get(selected_day,[]) %}<a class="list-row" href="{{ event_link(comp) }}"><span class="date-chip">{{ comp.formatted_time }}</span><span class="list-copy"><strong>{{ comp.title }}</strong><small>{{ comp.location }} · {{ comp.distance or '—' }} м · Участников: {{ participants }}</small></span>{{ status(comp) }}</a>{% else %}<p class="empty-state">В выбранный день соревнований нет.</p>{% endfor %}</div></section>
+{% elif entries %}
+<div class="card table-responsive"><table class="table table-hover competition-table"><thead><tr><th>Соревнование</th><th>Дата / время</th><th>Место</th><th>Участников</th><th>Статус</th></tr></thead><tbody>
+{% for comp,participants in entries %}<tr><td><a href="{{ event_link(comp) }}">{{ comp.title }}</a><div class="small text-muted">{{ comp.distance or '—' }} м</div></td><td>{{ comp.formatted_date }}<div class="small text-muted">{{ comp.formatted_time }}</div></td><td>{{ comp.location }}</td><td>{{ participants }}</td><td>{{ status(comp) }}</td></tr>{% endfor %}
+</tbody></table></div>
+<nav class="pagination-bar" aria-label="Страницы списка"><span>Страница {{ page }} из {{ pages }} · по 20 записей</span><div class="card-actions">{% if page > 1 %}<a class="btn btn-outline-secondary" href="{{ browse_url(page=page-1) }}">← Назад</a>{% endif %}{% if page < pages %}<a class="btn btn-outline-secondary" href="{{ browse_url(page=page+1) }}">Далее →</a>{% endif %}</div></nav>
+{% else %}<div class="card empty-state"><strong>Соревнования не найдены</strong><p>Измените условия поиска или сбросьте фильтры.</p><a class="btn btn-outline-secondary" href="{{ url_for('competitions.index',view=view,month=month.strftime('%Y-%m')) }}">Сбросить фильтры</a></div>{% endif %}
+{% endblock %}

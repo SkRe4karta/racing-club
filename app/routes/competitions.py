@@ -16,12 +16,18 @@ def load_competition(comp_id):
     ).filter_by(id=comp_id).first()
 
 
+@competitions_bp.get('/')
+def index():
+    from app.competition_views import browse
+    return browse()
+
+
 # --- Будущие состязания ---
 
 @competitions_bp.route('/future')
 def future_list():
-    from app.web import listing
-    return listing('future')
+    from app.competition_views import browse
+    return browse('future')
 
 
 @competitions_bp.route('/future/<int:comp_id>')
@@ -45,8 +51,8 @@ def future_add():
 
 @competitions_bp.route('/past')
 def past_list():
-    from app.web import listing
-    return listing('past')
+    from app.competition_views import browse
+    return browse('past')
 
 
 @competitions_bp.route('/past/<int:comp_id>')

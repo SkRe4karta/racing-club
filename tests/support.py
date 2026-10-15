@@ -7,7 +7,7 @@ import sqlalchemy as sa
 
 
 @contextmanager
-def isolated_database():
+def isolated_database(*, prefix='racing_test_'):
     admin_url = os.environ.get('RACING_TEST_POSTGRES_URL')
     if not admin_url:
         yield 'sqlite:///:memory:'
@@ -15,7 +15,9 @@ def isolated_database():
     url = sa.engine.make_url(admin_url)
     if url.get_backend_name() != 'postgresql':
         raise RuntimeError('RACING_TEST_POSTGRES_URL must point to a disposable PostgreSQL server.')
-    database = 'racing_test_' + uuid4().hex
+    if prefix not in ('racing_test_', 'racing_demo_'):
+        raise ValueError('Unsupported isolated database prefix')
+    database = prefix + uuid4().hex
     admin = sa.create_engine(url, isolation_level='AUTOCOMMIT')
     try:
         with admin.connect() as connection:

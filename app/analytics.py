@@ -104,3 +104,54 @@ def horse_card_data(horses, results):
         data[horse.id] = {**sporting_summary(history), 'next_result': min(
             upcoming, key=lambda row: start_at(row.competition), default=None)}
     return data
+
+
+def history_context(query):
+    """Page ORM histories; compute period totals in SQL and load 24 chart points."""
+    from sqlalchemy.orm import selectinload
+    identifiers = query.with_entities(Result.id).order_by(None).statement
+    base = select(Result).where(Result.id.in_(identifiers)).join(Result.competition)
+    completed = base.where(Competition.status == 'completed')
+    valid = and_(Result.is_disqualified.is_(False), Result.did_not_finish.is_(False))
+    columns = [func.count(Result.id)] + [func.coalesce(func.sum(case((and_(valid, Result.place == place), 1), else_=0)), 0)
+                                       for place in (1, 2, 3)]
+    columns += [func.coalesce(func.sum(case((column.is_(True), 1), else_=0)), 0)
+                for column in (Result.is_disqualified, Result.did_not_finish)]
+    count, wins, seconds, thirds, dsq, dnf = db.session.execute(completed.with_only_columns(*columns)).one()
+    loaded = base.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey))
+    order = (Competition.event_date.desc(), Competition.event_time.desc(), Result.id.desc())
+    pagination = db.paginate(loaded.order_by(*order), per_page=20, error_out=False)
+    chart_rows = db.session.scalars(loaded.where(Competition.status == 'completed').order_by(*order).limit(24)).all()
+    averages = db.session.execute(completed.where(valid, Result.finish_time_seconds > 0, Competition.distance.is_not(None))
+        .with_only_columns(Competition.distance, func.avg(Result.finish_time_seconds), func.count(Result.id))
+        .group_by(Competition.distance).order_by(Competition.distance)).all()
+    metric = dict(count=count, wins=wins, seconds=seconds, thirds=thirds, podium=wins+seconds+thirds,
+                  disqualifications=dsq, dnf=dnf, rate=round(100*wins/count, 1) if count else None,
+                  last=chart_rows[0] if chart_rows else None)
+    return dict(results=pagination.items, pagination=pagination, history_metric=metric,
+                history_chart=performance_chart(chart_rows),
+                history_averages=[(distance, round(average, 2), n) for distance, average, n in averages])
+
+
+def horse_cards_from_database(horses):
+    """Aggregate all performances without materializing a horse's complete history."""
+    identifiers = [h.id for h in horses]
+    valid = and_(Result.is_disqualified.is_(False), Result.did_not_finish.is_(False))
+    rows = db.session.execute(select(Result.horse_id, func.count(Result.id),
+        func.sum(case((and_(valid, Result.place == 1), 1), else_=0)),
+        func.sum(case((and_(valid, Result.place.between(1, 3)), 1), else_=0)))
+        .join(Competition).where(Result.horse_id.in_(identifiers), Competition.status == 'completed')
+        .group_by(Result.horse_id)).all()
+    data = {h.id: dict(starts=0, wins=0, podium=0, next_result=None) for h in horses}
+    for identifier, starts, wins, podium in rows:
+        data[identifier].update(starts=starts, wins=wins, podium=podium)
+    from app.models import utc_now
+    from app.admin_services import start_at
+    from sqlalchemy.orm import selectinload
+    for row in db.session.scalars(select(Result).join(Competition)
+            .where(Result.horse_id.in_(identifiers), Competition.status == 'planned')
+            .options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey))
+            .order_by(Competition.event_date, Competition.event_time)):
+        if start_at(row.competition) > utc_now() and data[row.horse_id]['next_result'] is None:
+            data[row.horse_id]['next_result'] = row
+    return data

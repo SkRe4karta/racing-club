@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app import db
 from app.models import Competition, Result, Prediction, PredictionChoice, Horse
 from app.permissions import permission_required
-from app.prediction_services import (accuracy_summary, prediction_query, predictions_open, save_prediction)
+from app.prediction_services import (account_accuracy, prediction_query, predictions_open, save_prediction)
 from app.admin_services import start_at
 
 predictions_bp = Blueprint('predictions', __name__, url_prefix='/predictions')
@@ -87,6 +87,4 @@ def submit(comp):
 def history():
     query = prediction_query().where(Prediction.user_id == current_user.id)
     page = db.paginate(query.order_by(Prediction.created_at.desc(), Prediction.id.desc()), per_page=20, error_out=False)
-    # One bounded-column query for account accuracy, never relationships per row.
-    all_mine = db.session.scalars(query).all()
-    return render_template('predictions/history.html', pagination=page, summary=accuracy_summary(all_mine))
+    return render_template('predictions/history.html', pagination=page, summary=account_accuracy(current_user.id))

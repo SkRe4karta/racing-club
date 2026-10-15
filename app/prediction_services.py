@@ -105,3 +105,23 @@ def accuracy_summary(predictions):
     rate = lambda values: round(100 * sum(values) / len(values), 1) if values else None
     return dict(total=len(predictions), winners=len(winners), winner_rate=rate(winners),
                 trios=len(trios), trio_rate=rate(trios), slot_rate=rate(slots), slots=len(slots))
+
+
+def account_accuracy(user_id):
+    """Aggregate account accuracy in SQL; no full prediction/choice history load."""
+    from sqlalchemy import func, case
+    evaluated = Prediction.outcome == 'evaluated'
+    query = select(func.count(Prediction.id),
+        func.sum(case((evaluated & Prediction.winner_correct.is_not(None), 1), else_=0)),
+        func.sum(case((evaluated & Prediction.winner_correct.is_(True), 1), else_=0)),
+        func.sum(case((evaluated & Prediction.exact_trio.is_not(None), 1), else_=0)),
+        func.sum(case((evaluated & Prediction.exact_trio.is_(True), 1), else_=0))).where(Prediction.user_id == user_id)
+    total, winners, correct_winners, trios, correct_trios = db.session.execute(query).one()
+    slots, correct_slots = db.session.execute(select(func.count(PredictionChoice.id),
+        func.sum(case((PredictionChoice.position_correct.is_(True), 1), else_=0)))
+        .join(Prediction).where(Prediction.user_id == user_id, evaluated, Prediction.mode == 'trio',
+                              PredictionChoice.position_correct.is_not(None))).one()
+    rate = lambda correct, count: round(100 * (correct or 0) / count, 1) if count else None
+    return dict(total=total, winners=winners or 0, trios=trios or 0, slots=slots,
+                winner_rate=rate(correct_winners, winners), trio_rate=rate(correct_trios, trios),
+                slot_rate=rate(correct_slots, slots))

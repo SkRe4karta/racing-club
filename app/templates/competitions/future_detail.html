@@ -93,7 +93,7 @@
       </div>
     {% endif %}
   </div>
-  <a class="btn btn-outline-secondary mt-3" href="{{ url_for('competitions.future_list') }}">
-    ← Все будущие состязания
+  <a class="btn btn-outline-secondary mt-3" href="{{ url_for('competitions.index',view='calendar',month=request.args.get('month'),day=request.args.get('day','')) if request.args.get('view') == 'calendar' else url_for('competitions.index',view='future') }}">
+    ← {{ 'Календарь соревнований' if request.args.get('view') == 'calendar' else 'Все будущие соревнования' }}
   </a>
 {% endblock %}
