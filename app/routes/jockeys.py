@@ -3,6 +3,7 @@ from sqlalchemy.orm import selectinload
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app import db
 from app.models import Jockey, Result, Competition
+from app.permissions import permission_required
 
 jockeys_bp = Blueprint('jockeys', __name__)
 
@@ -12,6 +13,7 @@ def list_jockeys():
     return listing('jockeys')
 
 @jockeys_bp.route('/add', methods=['GET', 'POST'])
+@permission_required('create_jockey')
 def add_jockey():
     if request.method == 'POST':
         full_name = request.form.get('full_name', '').strip()

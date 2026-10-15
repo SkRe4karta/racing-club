@@ -13,21 +13,21 @@
       АИС «Скачки» — лошади, люди и состязания. Планируйте старты, фиксируйте результаты и следите за историей выступлений.
     </p>
     <div class="quick-actions">
-      <a class="btn btn-primary" href="{{ url_for('competitions.future_add') }}">
+      {% if can('manage_competitions') %}<a class="btn btn-primary" href="{{ url_for('competitions.future_add') }}">
         ＋ Создать состязание
-      </a>
-      <a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
+      </a>{% endif %}
+      {% if can('manage_competitions') %}<a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
         Завершить состязание
-      </a>
-      <a class="btn btn-outline-secondary" href="{{ url_for('horses.add_horse') }}">
+      </a>{% endif %}
+      {% if can('create_horse') %}<a class="btn btn-outline-secondary" href="{{ url_for('horses.add_horse') }}">
         Добавить лошадь
-      </a>
-      <a class="btn btn-outline-secondary" href="{{ url_for('jockeys.add_jockey') }}">
+      </a>{% endif %}
+      {% if can('create_jockey') %}<a class="btn btn-outline-secondary" href="{{ url_for('jockeys.add_jockey') }}">
         Добавить жокея
-      </a>
-      <a class="btn btn-outline-secondary" href="{{ url_for('owners.add_owner') }}">
+      </a>{% endif %}
+      {% if can('create_owner') %}<a class="btn btn-outline-secondary" href="{{ url_for('owners.add_owner') }}">
         Добавить владельца
-      </a>
+      </a>{% endif %}
     </div>
   </section>
   <div class="stats-grid">
@@ -86,9 +86,9 @@
       {% if overdue %}
         <div class="alert alert-warning m-3">
           Ожидают завершения: {{ overdue }}. Дата прошла, результаты ещё не внесены.
-          <a href="{{ url_for('competitions.complete') }}">
+          {% if can('manage_competitions') %}<a href="{{ url_for('competitions.complete') }}">
             Внести результаты →
-          </a>
+          </a>{% endif %}
         </div>
       {% endif %}
     </section>

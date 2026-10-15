@@ -17,12 +17,12 @@
 
                         В системе пока нет зарегистрированных владельцев! Сначала добавьте хотя бы одного владельца.
                         <div class="mt-2">
-                            <a href="{{ url_for('owners.add_owner') }}" class="btn btn-sm btn-warning">Добавить владельца</a>
+                            {% if can('create_owner') %}<a href="{{ url_for('owners.add_owner') }}" class="btn btn-sm btn-warning">Добавить владельца</a>{% endif %}
                         </div>
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('horses.add_horse') }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                <form method="POST" action="{{ url_for('horses.add_horse') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="nickname" class="form-label fw-semibold">Кличка лошади <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="nickname" name="nickname" maxlength="100" value="{{ nickname or '' }}" required autofocus placeholder="например Буцефал">

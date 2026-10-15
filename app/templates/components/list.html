@@ -22,13 +22,13 @@
       </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-      <a class="btn btn-primary" href="{{ url_for(info[2]) }}">
+      {% if can({'owners':'create_owner', 'jockeys':'create_jockey', 'horses':'create_horse', 'future':'manage_competitions', 'past':'manage_competitions'}[kind]) %}<a class="btn btn-primary" href="{{ url_for(info[2]) }}">
         ＋ {{ info[3] }}
-      </a>
+      </a>{% endif %}
       {% if kind in ['future','past'] %}
-        <a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
+        {% if can('manage_competitions') %}<a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
           Завершить состязание
-        </a>
+        </a>{% endif %}
       {% endif %}
     </div>
   </div>

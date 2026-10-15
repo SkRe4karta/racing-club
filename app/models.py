@@ -1,6 +1,67 @@
-from datetime import datetime, date, time
-from sqlalchemy import UniqueConstraint
+from datetime import datetime, timezone
+from sqlalchemy import CheckConstraint, Index, UniqueConstraint, text
+from flask_login import UserMixin
+from werkzeug.security import check_password_hash, generate_password_hash
 from app import db
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+class User(UserMixin, db.Model):
+    """Account and exclusive profile association; legacy profiles stay unclaimed."""
+
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(254), nullable=False, unique=True, index=True)
+    password_hash = db.Column(db.String(512), nullable=False)
+    role = db.Column(db.String(16), nullable=False, default='VIEWER')
+    status = db.Column(db.String(16), nullable=False, default='active')
+    registered_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    last_login_at = db.Column(db.DateTime(timezone=True))
+    owner_id = db.Column(db.Integer, db.ForeignKey('owners.id', ondelete='RESTRICT'), unique=True)
+    jockey_id = db.Column(db.Integer, db.ForeignKey('jockeys.id', ondelete='RESTRICT'), unique=True)
+
+    owner = db.relationship('Owner', back_populates='user')
+    jockey = db.relationship('Jockey', back_populates='user')
+
+    __table_args__ = (
+        CheckConstraint("role IN ('ROOT', 'ADMIN', 'OWNER', 'JOCKEY', 'VIEWER')", name='ck_users_role'),
+        CheckConstraint("status IN ('active', 'disabled')", name='ck_users_status'),
+        CheckConstraint('email = lower(email)', name='ck_users_email_normalized'),
+        CheckConstraint(
+            "(role = 'OWNER' AND owner_id IS NOT NULL AND jockey_id IS NULL) OR "
+            "(role = 'JOCKEY' AND jockey_id IS NOT NULL AND owner_id IS NULL) OR "
+            "(role IN ('ROOT', 'ADMIN', 'VIEWER') AND owner_id IS NULL AND jockey_id IS NULL)",
+            name='ck_users_profile_role',
+        ),
+        Index('uq_users_initial_root', 'role', unique=True,
+              postgresql_where=text("role = 'ROOT'"), sqlite_where=text("role = 'ROOT'")),
+    )
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    def set_password(self, password):
+        if not 12 <= len(password) <= 128 or not password.strip():
+            raise ValueError('Пароль должен содержать от 12 до 128 символов.')
+        self.password_hash = generate_password_hash(password, method='scrypt')
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
+class AuthThrottle(db.Model):
+    """Shared fixed-window counters; keys contain hashes, never raw credentials."""
+
+    __tablename__ = 'auth_throttles'
+    key = db.Column(db.String(64), primary_key=True)
+    window_started = db.Column(db.BigInteger, nullable=False)
+    attempts = db.Column(db.Integer, nullable=False)
+    __table_args__ = (CheckConstraint('attempts > 0', name='ck_auth_throttles_attempts'),)
 
 class Owner(db.Model):
     __tablename__ = 'owners'
@@ -9,6 +70,7 @@ class Owner(db.Model):
     full_name = db.Column(db.String(150), nullable=False)
     address = db.Column(db.String(255), nullable=True)
     phone = db.Column(db.String(50), nullable=True)
+    user = db.relationship('User', back_populates='owner', uselist=False)
 
     horses = db.relationship('Horse', back_populates='owner', cascade='all, delete-orphan', lazy=True)
 
@@ -40,6 +102,7 @@ class Jockey(db.Model):
     address = db.Column(db.String(255), nullable=True)
     age = db.Column(db.Integer, nullable=False)
     rating = db.Column(db.Float, nullable=False, default=0.0)
+    user = db.relationship('User', back_populates='jockey', uselist=False)
 
     results = db.relationship('Result', back_populates='jockey', cascade='all, delete-orphan', lazy=True)
 

@@ -1381,3 +1381,12 @@ dd {
     min-width:680px
   }
 }
+/* Authentication forms share the existing responsive design system. */
+.auth-form { max-width: 36rem; }
+.auth-form label, .auth-form small { display: block; }
+.auth-form small { margin-top: .35rem; }
+.account-card { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .topbar { flex-wrap: wrap; gap: .75rem; height: auto; min-height: 76px; }
+  .topbar > .d-flex { flex-wrap: wrap; }
+}

@@ -2,9 +2,8 @@
 import calendar
 import csv
 import io
-import secrets
 from datetime import date
-from flask import request, session, url_for, Response, render_template
+from flask import request, url_for, Response, render_template
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import selectinload
@@ -119,19 +118,11 @@ def listing(kind):
 
 
 def setup_web(app):
-    app.config.setdefault('WTF_CSRF_ENABLED', True)
-    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', MAX_CONTENT_LENGTH=2 * 1024 * 1024)
-
     @app.before_request
     def validate_forms():
         id_limit = 2147483647 if db.engine.dialect.name == 'postgresql' else 9223372036854775807
         if any(isinstance(value, int) and value > id_limit for value in (request.view_args or {}).values()):
             return render_template('errors/404.html'), 404
-        session.setdefault('csrf_token', secrets.token_urlsafe(32))
-        if request.method == 'POST' and app.config['WTF_CSRF_ENABLED']:
-            token = request.form.get('csrf_token', '')
-            if not secrets.compare_digest(token, session['csrf_token']):
-                return render_template('errors/message.html', message='Срок действия формы истёк. Обновите страницу и повторите ввод.'), 400
         if request.method == 'POST':
             labels = {'full_name': 'ФИО', 'address': 'Адрес', 'phone': 'Телефон', 'nickname': 'Кличка', 'gender': 'Пол', 'title': 'Название', 'location': 'Место проведения'}
             # Ограничения длины берём из существующей схемы.

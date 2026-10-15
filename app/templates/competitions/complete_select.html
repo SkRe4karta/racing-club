@@ -29,9 +29,9 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <a href="{{ url_for('competitions.complete', comp_id=comp.id) }}" class="btn btn-sm btn-success">
+                                    {% if can('manage_competitions') %}<a href="{{ url_for('competitions.complete', comp_id=comp.id) }}" class="btn btn-sm btn-success">
                                         Ввести результаты
-                                    </a>
+                                    </a>{% endif %}
                                 </div>
                             </div>
                         {% endfor %}
@@ -41,8 +41,8 @@
 
                         Нет запланированных состязаний, доступных для завершения.
                         <div class="mt-3">
-                            <a href="{{ url_for('competitions.future_add') }}" class="btn btn-primary btn-sm me-2">Создать будущее состязание</a>
-                            <a href="{{ url_for('competitions.past_add') }}" class="btn btn-outline-success btn-sm">Внести уже прошедшее состязание</a>
+                            {% if can('manage_competitions') %}<a href="{{ url_for('competitions.future_add') }}" class="btn btn-primary btn-sm me-2">Создать будущее состязание</a>{% endif %}
+                            {% if can('manage_competitions') %}<a href="{{ url_for('competitions.past_add') }}" class="btn btn-outline-success btn-sm">Внести уже прошедшее состязание</a>{% endif %}
                         </div>
                     </div>
                 {% endif %}

@@ -19,7 +19,7 @@
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('competitions.past_add') }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                <form method="POST" action="{{ url_for('competitions.past_add') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Параметры состязания -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">

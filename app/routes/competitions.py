@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from sqlalchemy.orm import selectinload
 from app.models import Competition, Result, Horse, Jockey
+from app.permissions import permission_required
 from app.services import (
     create_future_competition,
     complete_planned_competition,
@@ -38,6 +39,7 @@ def future_detail(comp_id):
 
 
 @competitions_bp.route('/future/add', methods=['GET', 'POST'])
+@permission_required('manage_competitions')
 def future_add():
     horses = Horse.query.order_by(Horse.nickname.asc()).all()
     jockeys = Jockey.query.order_by(Jockey.full_name.asc()).all()
@@ -153,6 +155,7 @@ def past_detail(comp_id):
 
 @competitions_bp.route('/complete', methods=['GET', 'POST'])
 @competitions_bp.route('/complete/<int:comp_id>', methods=['GET', 'POST'])
+@permission_required('manage_competitions')
 def complete(comp_id=None):
     if comp_id is None:
         comp_id_arg = request.args.get('comp_id')
@@ -208,6 +211,7 @@ def complete(comp_id=None):
 # --- Добавление прошедшего состязания сразу ---
 
 @competitions_bp.route('/past/add', methods=['GET', 'POST'])
+@permission_required('manage_competitions')
 def past_add():
     horses = Horse.query.order_by(Horse.nickname.asc()).all()
     jockeys = Jockey.query.order_by(Jockey.full_name.asc()).all()

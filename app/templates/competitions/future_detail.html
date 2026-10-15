@@ -15,9 +15,9 @@
         {{ competition.formatted_date }} · {{ competition.formatted_time }} · {{ competition.location }}
       </p>
     </div>
-    <a class="btn btn-success" href="{{ url_for('competitions.complete',comp_id=competition.id) }}">
+    {% if can('manage_competitions') %}<a class="btn btn-success" href="{{ url_for('competitions.complete',comp_id=competition.id) }}">
       Внести результаты
-    </a>
+    </a>{% endif %}
   </div>
   {% if competition.event_date < today %}
     <div class="alert alert-warning">

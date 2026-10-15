@@ -32,7 +32,7 @@
                     <strong>Правила фиксации результатов:</strong> Участники зафиксированы предварительной заявкой. Для каждого участника необходимо указать показанное время (например: <code>124.50</code> или <code>02:04.50</code>) либо отметить чекбокс «Дисквалификация». Места будут рассчитаны автоматически по возрастанию времени. После сохранения изменения запрещены.
                 </div>
 
-                <form method="POST" action="{{ url_for('competitions.complete', comp_id=competition.id) }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                <form method="POST" action="{{ url_for('competitions.complete', comp_id=competition.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="table-responsive mb-4">
                         <table class="table table-hover align-middle border">
                             <thead class="table-light">

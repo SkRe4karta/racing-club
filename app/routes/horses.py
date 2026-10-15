@@ -1,7 +1,9 @@
 from sqlalchemy.orm import selectinload
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, abort, render_template, request, redirect, url_for, flash
+from flask_login import current_user
 from app import db
 from app.models import Horse, Owner, Result, Competition
+from app.permissions import permission_required
 
 horses_bp = Blueprint('horses', __name__)
 
@@ -11,13 +13,17 @@ def list_horses():
     return listing('horses')
 
 @horses_bp.route('/add', methods=['GET', 'POST'])
+@permission_required('create_horse')
 def add_horse():
-    owners = Owner.query.order_by(Owner.full_name.asc()).all()
+    owners = ([current_user.owner] if current_user.role == 'OWNER'
+              else Owner.query.order_by(Owner.full_name.asc()).all())
     if request.method == 'POST':
         nickname = request.form.get('nickname', '').strip()
         gender = request.form.get('gender', '').strip()
         age_str = request.form.get('age', '').strip()
         owner_id_str = request.form.get('owner_id', '').strip()
+        if current_user.role == 'OWNER' and owner_id_str != str(current_user.owner_id):
+            abort(403)
 
         errors = []
         if not nickname:

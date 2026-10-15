@@ -18,16 +18,16 @@
                         Для создания состязания необходимо наличие в системе зарегистрированных лошадей и жокеев.
                         <div class="mt-2">
                             {% if not horses %}
-                                <a href="{{ url_for('horses.add_horse') }}" class="btn btn-sm btn-outline-dark me-2">Добавить лошадь</a>
+                                {% if can('create_horse') %}<a href="{{ url_for('horses.add_horse') }}" class="btn btn-sm btn-outline-dark me-2">Добавить лошадь</a>{% endif %}
                             {% endif %}
                             {% if not jockeys %}
-                                <a href="{{ url_for('jockeys.add_jockey') }}" class="btn btn-sm btn-outline-dark">Добавить жокея</a>
+                                {% if can('create_jockey') %}<a href="{{ url_for('jockeys.add_jockey') }}" class="btn btn-sm btn-outline-dark">Добавить жокея</a>{% endif %}
                             {% endif %}
                         </div>
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('competitions.future_add') }}"><input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                <form method="POST" action="{{ url_for('competitions.future_add') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Параметры состязания -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-12">
