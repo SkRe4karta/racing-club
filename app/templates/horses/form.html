@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Добавление лошади &mdash; АИС «Скачки»{% endblock %}
+{% block title %}{{ 'Редактирование' if horse else 'Добавление' }} лошади &mdash; АИС «Скачки»{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -8,7 +8,7 @@
         <div class="card shadow-sm">
             <div class="card-header py-3">
                 <h5 class="card-title mb-0 fw-bold">
-                    Регистрация новой лошади
+                    {{ 'Редактирование лошади' if horse else 'Регистрация новой лошади' }}
                 </h5>
             </div>
             <div class="card-body p-4">
@@ -22,7 +22,7 @@
                     </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('horses.add_horse') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <form method="POST" action="{{ url_for('horses.edit_horse', horse_id=horse.id) if horse else url_for('horses.add_horse') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="nickname" class="form-label fw-semibold">Кличка лошади <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="nickname" name="nickname" maxlength="100" value="{{ nickname or '' }}" required autofocus placeholder="например Буцефал">
@@ -44,7 +44,7 @@
                         </div>
                     </div>
 
-                    <div class="mb-4">
+                    {% if not horse %}<div class="mb-4">
                         <label for="owner_id" class="form-label fw-semibold">Владелец <span class="text-danger">*</span></label>
                         <select class="form-select" id="owner_id" name="owner_id" required {% if not owners %}disabled{% endif %}>
                             <option value="" disabled {% if not selected_owner_id %}selected{% endif %}>Выберите владельца из списка...</option>
@@ -56,7 +56,7 @@
                         </select>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center">
+                    {% endif %}<div class="d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('horses.list_horses') }}" class="btn btn-outline-secondary">
                              Назад к списку
                         </a>

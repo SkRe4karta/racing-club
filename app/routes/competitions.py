@@ -103,12 +103,21 @@ def future_add():
             )
 
         try:
+            from flask import current_app
+            from zoneinfo import ZoneInfo
+            deadline = None
+            if request.form.get('registration_deadline'):
+                try:
+                    deadline = datetime.strptime(request.form['registration_deadline'], '%Y-%m-%dT%H:%M').replace(tzinfo=ZoneInfo(current_app.config['CLUB_TIMEZONE']))
+                except ValueError:
+                    raise ValueError('Некорректный срок регистрации.') from None
             comp = create_future_competition(
                 title=title,
                 event_date_val=event_date_val,
                 event_time_val=event_time_val,
                 location=location,
-                participants=participants
+                participants=participants,
+                registration_deadline=deadline
             )
             flash(f"Будущее состязание «{comp.title}» успешно создано.", "success")
             return redirect(url_for('competitions.future_list'))

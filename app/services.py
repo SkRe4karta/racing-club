@@ -55,7 +55,7 @@ def participant_id(value):
     return identifier
 
 
-def create_future_competition(title: str, event_date_val, event_time_val, location: str, participants: list):
+def create_future_competition(title: str, event_date_val, event_time_val, location: str, participants: list, registration_deadline=None):
     """
     Создает запланированное состязание с парами (лошадь, жокей).
     participants: list of dicts [{'horse_id': int, 'jockey_id': int}, ...]
@@ -109,6 +109,11 @@ def create_future_competition(title: str, event_date_val, event_time_val, locati
         location=location.strip(),
         status='planned'
     )
+    if registration_deadline is not None:
+        from app.application_services import as_utc, registration_closes
+        if as_utc(registration_deadline) > registration_closes(competition):
+            raise ValueError('Срок регистрации не может быть позже начала соревнования.')
+        competition.registration_deadline = as_utc(registration_deadline)
     db.session.add(competition)
     db.session.flush()
 

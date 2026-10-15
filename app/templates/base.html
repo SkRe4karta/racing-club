@@ -18,6 +18,15 @@
     </a>
     {% set nav = [('main.index','Главная','⌂'),('horses.list_horses','Лошади','♞'),('jockeys.list_jockeys','Жокеи','♙'),('owners.list_owners','Владельцы','♧'),('competitions.future_list','Будущие состязания','▦'),('competitions.past_list','Прошедшие состязания','⚑')] %}
     {% set section = 'Главная' if request.blueprint == 'main' else 'Лошади' if request.blueprint == 'horses' else 'Жокеи' if request.blueprint == 'jockeys' else 'Владельцы' if request.blueprint == 'owners' else 'Прошедшие состязания' if '/past' in request.path else 'Будущие состязания' if request.blueprint == 'competitions' else 'Страница' %}
+    {% if can('cabinet') %}
+      {% set nav = nav + [('cabinet.dashboard','Личный кабинет','⌂'),('cabinet.applications','Заявки','▤')] %}
+    {% endif %}
+    {% if current_user.is_authenticated %}
+      {% set nav = nav + [('cabinet.notifications','Уведомления','✉')] %}
+    {% endif %}
+    {% if request.blueprint == 'cabinet' %}
+      {% set section = 'Уведомления' if 'notification' in request.endpoint else 'Заявки' if 'application' in request.endpoint else 'Личный кабинет' %}
+    {% endif %}
     <div class="menu-shade" hidden>
     </div>
     <aside class="sidebar" id="sidebar" aria-label="Основное меню">
@@ -41,7 +50,7 @@
             <span class="nav-icon" aria-hidden="true">
               {{ icon }}
             </span>
-            {{ label }}
+            {{ label }}{% if endpoint == 'cabinet.notifications' %} · {{ unread_notifications }}{% endif %}
           </a>
         {% endfor %}
       </nav>
@@ -124,7 +133,7 @@
         {% endblock %}
       </main>
       <footer class="footer">
-        АИС «Скачки»
+        Racing Club {{ config.VERSION }}
         <span>
           Учёт. Состязания. Результаты.
         </span>

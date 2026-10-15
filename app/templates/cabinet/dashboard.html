@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Личный кабинет — Racing Club{% endblock %}
+{% block content %}
+{% set profile = current_user.owner if current_user.role == 'OWNER' else current_user.jockey if current_user.role == 'JOCKEY' else none %}
+<div class="page-heading"><div><h1>Кабинет {{ 'владельца' if current_user.role == 'OWNER' else 'жокея' if current_user.role == 'JOCKEY' else 'ROOT' }}</h1>
+<p>Здравствуйте, {{ profile.full_name if profile else current_user.email }}!</p></div></div>
+<div class="card p-4"><h2>Персональная информация</h2>
+<p>{{ current_user.email }}</p>
+{% if profile %}<p>{{ profile.full_name }} · {{ profile.address or 'Адрес не указан' }}</p>
+{% if current_user.role == 'OWNER' %}<p>Телефон: {{ profile.phone or 'не указан' }}</p>{% else %}<p>Возраст: {{ profile.age }} · Рейтинг: {{ profile.rating }}</p>{% endif %}
+<a class="btn btn-outline-secondary" href="{{ url_for('cabinet.profile_edit', side=current_user.role.lower(), profile_id=profile.id) }}">Редактировать профиль</a>{% endif %}
+</div>
+<div class="d-flex gap-2 flex-wrap my-3">
+{% if can('create_horse') %}<a class="btn btn-primary" href="{{ url_for('horses.add_horse') }}">Добавить лошадь</a>{% endif %}
+<a class="btn btn-primary" href="{{ url_for('cabinet.application_new') }}">Заявить на соревнование</a>
+<a class="btn btn-outline-secondary" href="{{ url_for('cabinet.applications') }}">Все заявки</a>
+<a class="btn btn-outline-secondary" href="{{ url_for('cabinet.notifications') }}">Уведомления · {{ unread_notifications }} непрочитанных</a>
+</div>
+{% if current_user.role == 'OWNER' %}
+<div class="card p-4"><h2>Мои лошади · {{ horses|length }}</h2><ul>
+{% for horse in horses %}<li><a href="{{ url_for('horses.detail_horse', horse_id=horse.id) }}">{{ horse.nickname }}</a> · {{ horse.age }} лет · <a href="{{ url_for('horses.edit_horse', horse_id=horse.id) }}">Редактировать</a></li>
+{% else %}<li>Лошадей пока нет. Добавьте первую лошадь.</li>{% endfor %}</ul></div>{% endif %}
+<h2>Активные заявки и приглашения</h2>
+<p>Для согласования откройте заявку. После второго согласия требуется решение администратора.</p>
+{% set all_applications = applications %}
+{% set applications = all_applications|selectattr('is_active')|list %}
+{% include 'cabinet/_application_table.html' %}
+<h2>История заявок</h2>
+{% set applications = all_applications|rejectattr('is_active')|list %}
+{% include 'cabinet/_application_table.html' %}
+<h2>Мои предстоящие участия</h2>
+<ul>{% for result in results if not result.competition.is_completed and result.competition.event_date >= today %}
+<li><a href="{{ url_for('competitions.future_detail', comp_id=result.competition_id) }}">{{ result.competition.title }}</a> · {{ result.competition.formatted_date }} · {{ result.horse.nickname }} · прежний список участников</li>
+{% else %}<li>Участий в прежних стартовых списках нет. Новые заявки показаны выше и ожидают допуска.</li>{% endfor %}</ul>
+<h2>Соревнования с открытой регистрацией</h2>
+<ul>{% for comp in upcoming %}<li><a href="{{ url_for('competitions.future_detail', comp_id=comp.id) }}">{{ comp.title }}</a> · {{ comp.formatted_date }} {{ comp.formatted_time }} · <a href="{{ url_for('cabinet.application_new', competition_id=comp.id) }}">Подать заявку</a></li>
+{% else %}<li>Соревнований с открытой регистрацией нет.</li>{% endfor %}</ul>
+<h2>Последние уведомления</h2><ul>
+{% for item in notifications %}<li><a href="{{ url_for('cabinet.notification_detail', notification_id=item.id) }}">{{ item.message }}</a>{% if not item.read_at %} · новое{% endif %}</li>
+{% else %}<li>Уведомлений пока нет.</li>{% endfor %}</ul>
+<h2>Спортивная статистика</h2>
+{% include 'components/performance.html' %}
+{% endblock %}

@@ -18,6 +18,8 @@ def add_horse():
     owners = ([current_user.owner] if current_user.role == 'OWNER'
               else Owner.query.order_by(Owner.full_name.asc()).all())
     if request.method == 'POST':
+        if set(request.form) - {'nickname', 'gender', 'age', 'owner_id', 'csrf_token'}:
+            abort(400)
         nickname = request.form.get('nickname', '').strip()
         gender = request.form.get('gender', '').strip()
         age_str = request.form.get('age', '').strip()
@@ -67,7 +69,7 @@ def add_horse():
         flash(f"Лошадь «{horse.nickname}» успешно добавлена.", "success")
         return redirect(url_for('horses.list_horses'))
 
-    return render_template('horses/form.html', owners=owners)
+    return render_template('horses/form.html', owners=owners, selected_owner_id=current_user.owner_id if current_user.role == 'OWNER' else None)
 
 @horses_bp.route('/<int:horse_id>')
 def detail_horse(horse_id):
@@ -78,4 +80,38 @@ def detail_horse(horse_id):
     
     # Получаем историю состязаний лошади
     results = Result.query.options(selectinload(Result.competition), selectinload(Result.horse), selectinload(Result.jockey)).filter_by(horse_id=horse.id).join(Result.competition).order_by(Competition.event_date.desc(), Competition.event_time.desc()).all()
-    return render_template('horses/detail.html', horse=horse, results=results)
+    from app.models import Application
+    from app.permissions import can
+    applications = []
+    if can('manage_horse', horse):
+        applications = db.session.scalars(db.select(Application).where(Application.horse_id == horse.id)
+            .options(selectinload(Application.competition)).order_by(Application.created_at.desc())).all()
+    return render_template('horses/detail.html', horse=horse, results=results, applications=applications)
+
+
+@horses_bp.route('/<int:horse_id>/edit', methods=['GET', 'POST'])
+@permission_required('create_horse')
+def edit_horse(horse_id):
+    from app.permissions import can
+    horse = db.get_or_404(Horse, horse_id)
+    if not can('manage_horse', horse):
+        abort(403)
+    if request.method == 'POST':
+        if set(request.form) - {'nickname', 'gender', 'age', 'csrf_token'}:
+            abort(400)
+        nickname = request.form.get('nickname', '').strip()
+        gender = request.form.get('gender', '').strip()
+        try:
+            age = int(request.form.get('age', ''))
+        except ValueError:
+            age = 0
+        if not nickname or len(nickname) > 100 or gender not in ('Жеребец', 'Кобыла', 'Мерин') or not 1 <= age <= 40:
+            flash('Укажите кличку (до 100 символов), пол и возраст от 1 до 40 лет.', 'danger')
+            return render_template('horses/form.html', horse=horse, owners=[horse.owner],
+                nickname=nickname, gender=gender, age=request.form.get('age', '')), 400
+        horse.nickname, horse.gender, horse.age = nickname, gender, age
+        db.session.commit()
+        flash('Информация о лошади сохранена.', 'success')
+        return redirect(url_for('horses.detail_horse', horse_id=horse.id))
+    return render_template('horses/form.html', horse=horse, owners=[horse.owner],
+        nickname=horse.nickname, gender=horse.gender, age=horse.age)

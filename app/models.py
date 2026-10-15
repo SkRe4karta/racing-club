@@ -120,6 +120,8 @@ class Competition(db.Model):
     location = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='planned')  # 'planned' или 'completed'
 
+    registration_deadline = db.Column(db.DateTime(timezone=True))
+
     results = db.relationship('Result', back_populates='competition', cascade='all, delete-orphan', lazy=True)
 
     @property
@@ -178,3 +180,98 @@ class Result(db.Model):
 
     def __repr__(self):
         return f"<Result Comp:{self.competition_id} Horse:{self.horse_id} Jockey:{self.jockey_id} Place:{self.place}>"
+
+
+APPLICATION_LABELS = {
+    'awaiting_owner': 'Ожидает согласования владельца',
+    'awaiting_jockey': 'Ожидает согласования жокея',
+    'pending_admin': 'Согласовано обеими сторонами · ожидает администратора',
+    'admin_confirmed': 'Подтверждено администратором',
+    'rejected': 'Отклонено',
+    'cancelled': 'Отменено',
+}
+ACTIVE_APPLICATION_SQL = "status IN ('awaiting_owner', 'awaiting_jockey', 'pending_admin', 'admin_confirmed')"
+
+
+class Application(db.Model):
+    """Immutable pair: change it by cancelling and submitting a new application.
+
+    Both consents imply pending_admin; Alpha 2 never adds a Result or admits a pair.
+    Frozen recipient accounts prevent historical profiles implying consent.
+    """
+
+    __tablename__ = 'applications'
+    id = db.Column(db.Integer, primary_key=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey('competitions.id', ondelete='RESTRICT'), nullable=False)
+    horse_id = db.Column(db.Integer, db.ForeignKey('horses.id', ondelete='RESTRICT'), nullable=False)
+    jockey_id = db.Column(db.Integer, db.ForeignKey('jockeys.id', ondelete='RESTRICT'), nullable=False)
+    owner_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    jockey_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    initiator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    initiator_side = db.Column(db.String(16), nullable=False)
+    status = db.Column(db.String(24), nullable=False)
+    owner_confirmed_at = db.Column(db.DateTime(timezone=True))
+    jockey_confirmed_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    competition = db.relationship('Competition')
+    horse = db.relationship('Horse')
+    jockey = db.relationship('Jockey')
+    events = db.relationship('ApplicationEvent', order_by='ApplicationEvent.id', passive_deletes=True)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('awaiting_owner', 'awaiting_jockey', 'pending_admin', 'admin_confirmed', 'rejected', 'cancelled')", name='ck_applications_status'),
+        CheckConstraint("initiator_side IN ('owner', 'jockey')", name='ck_applications_side'),
+        CheckConstraint('owner_user_id <> jockey_user_id', name='ck_applications_distinct_parties'),
+        CheckConstraint(
+            "(status = 'awaiting_owner' AND owner_confirmed_at IS NULL AND jockey_confirmed_at IS NOT NULL AND initiator_side = 'jockey') OR "
+            "(status = 'awaiting_jockey' AND owner_confirmed_at IS NOT NULL AND jockey_confirmed_at IS NULL AND initiator_side = 'owner') OR "
+            "(status IN ('pending_admin', 'admin_confirmed') AND owner_confirmed_at IS NOT NULL AND jockey_confirmed_at IS NOT NULL) OR "
+            "status IN ('rejected', 'cancelled')", name='ck_applications_consents'),
+        Index('uq_applications_active_horse', 'competition_id', 'horse_id', unique=True,
+              postgresql_where=text(ACTIVE_APPLICATION_SQL), sqlite_where=text(ACTIVE_APPLICATION_SQL)),
+        Index('uq_applications_active_jockey', 'competition_id', 'jockey_id', unique=True,
+              postgresql_where=text(ACTIVE_APPLICATION_SQL), sqlite_where=text(ACTIVE_APPLICATION_SQL)),
+        Index('ix_applications_owner_created', 'owner_user_id', 'created_at'),
+        Index('ix_applications_jockey_created', 'jockey_user_id', 'created_at'),
+    )
+
+    @property
+    def status_label(self):
+        return APPLICATION_LABELS[self.status]
+
+    @property
+    def is_active(self):
+        return self.status not in ('cancelled', 'rejected')
+
+
+class ApplicationEvent(db.Model):
+    """Append-only decision history, committed with the application and notifications."""
+
+    __tablename__ = 'application_events'
+    id = db.Column(db.Integer, primary_key=True)
+    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete='RESTRICT'), nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    action = db.Column(db.String(24), nullable=False)
+    status = db.Column(db.String(24), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    __table_args__ = (
+        CheckConstraint("action IN ('created', 'confirmed', 'rejected', 'cancelled')", name='ck_application_events_action'),
+        CheckConstraint("status IN ('awaiting_owner', 'awaiting_jockey', 'pending_admin', 'admin_confirmed', 'rejected', 'cancelled')", name='ck_application_events_status'),
+    )
+
+
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete='RESTRICT'), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('application_events.id', ondelete='RESTRICT'), nullable=False)
+    message = db.Column(db.String(300), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    read_at = db.Column(db.DateTime(timezone=True))
+    application = db.relationship('Application')
+    __table_args__ = (
+        UniqueConstraint('user_id', 'event_id', name='uq_notifications_recipient_event'),
+        Index('ix_notifications_user_read', 'user_id', 'read_at', 'id'),
+    )

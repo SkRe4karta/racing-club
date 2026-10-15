@@ -48,6 +48,9 @@
                         </div>
                     </div>
 
+                    <div class="mb-4"><label for="registration_deadline" class="form-label">Закрытие регистрации ({{ config.CLUB_TIMEZONE }})</label>
+                    <input type="datetime-local" class="form-control" id="registration_deadline" name="registration_deadline" value="{{ request.form.get('registration_deadline', '') }}">
+                    <p class="small text-muted">Если не указано, регистрация закрывается в момент начала. Срок не может быть позже старта.</p></div>
                     <hr>
 
                     <!-- Заявленные участники (пары лошадь - жокей) -->

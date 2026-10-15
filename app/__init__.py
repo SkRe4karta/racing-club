@@ -26,7 +26,8 @@ def create_app(test_config=None):
         LOGIN_LIMIT=5,
         LOGIN_IP_LIMIT=30,
         REGISTER_LIMIT=10,
-        VERSION='2.0.0-alpha.1',
+        VERSION='2.0.0-alpha.2',
+        CLUB_TIMEZONE='Europe/Moscow',
     )
 
     if test_config:
@@ -73,6 +74,9 @@ def create_app(test_config=None):
     app.register_blueprint(horses_bp, url_prefix='/horses')
     app.register_blueprint(jockeys_bp, url_prefix='/jockeys')
     app.register_blueprint(competitions_bp, url_prefix='/competitions')
+    from app.routes.cabinet import cabinet_bp, setup_cabinet_context
+    app.register_blueprint(cabinet_bp, url_prefix='/cabinet')
+    setup_cabinet_context(app)
     app.register_blueprint(errors_bp)
 
     return app

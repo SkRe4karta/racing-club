@@ -1390,3 +1390,14 @@ dd {
   .topbar { flex-wrap: wrap; gap: .75rem; height: auto; min-height: 76px; }
   .topbar > .d-flex { flex-wrap: wrap; }
 }
+
+/* Alpha 2: long private workflow labels remain readable on small screens. */
+.inbox-list { padding-left: 1.25rem; }
+.inbox-list li { margin-block: .8rem; overflow-wrap: anywhere; }
+.account-card { max-width: 48rem; }
+.my-3 { margin-block: 1rem; }
+.account-card select { max-width: 100%; }
+@media (max-width: 600px) {
+  .card, .page-heading, .stat-card { min-width: 0; }
+  h1, h2, p, li, dd, .card a { overflow-wrap: anywhere; }
+}

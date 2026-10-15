@@ -12,10 +12,29 @@ def can(permission, obj=None, user=None):
     if permission not in {
         'manage_system', 'manage_competitions', 'create_owner', 'create_jockey',
         'create_horse', 'manage_horse', 'manage_owner', 'manage_jockey', 'account',
+        'cabinet', 'create_application', 'view_application', 'confirm_application',
+        'cancel_application', 'notification',
     }:
         return False
+    if permission == 'notification':
+        return obj is not None and obj.user_id == user.id
+    if permission in ('confirm_application', 'cancel_application'):
+        if obj is None or not obj.is_active or obj.status == 'admin_confirmed':
+            return False
+        if permission == 'cancel_application':
+            return obj.initiator_id == user.id or user.role == 'ROOT'
+        if obj.initiator_id == user.id:
+            return False
+        return ((obj.status == 'awaiting_owner' and user.role == 'OWNER' and obj.owner_user_id == user.id)
+                or (obj.status == 'awaiting_jockey' and user.role == 'JOCKEY' and obj.jockey_user_id == user.id)
+                or (user.role == 'ROOT' and obj.status in ('awaiting_owner', 'awaiting_jockey')))
     if user.role == 'ROOT':
         return True
+    if permission in ('cabinet', 'create_application'):
+        return user.role in ('OWNER', 'JOCKEY')
+    if permission == 'view_application':
+        return obj is not None and ((user.role == 'OWNER' and obj.owner_user_id == user.id)
+                                    or (user.role == 'JOCKEY' and obj.jockey_user_id == user.id))
     if permission == 'account':
         return True
     if permission == 'manage_competitions':

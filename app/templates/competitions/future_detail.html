@@ -19,6 +19,11 @@
       Внести результаты
     </a>{% endif %}
   </div>
+  <p>Приём заявок до {{ registration_closes(competition).astimezone(club_timezone).strftime('%d.%m.%Y %H:%M %Z') }}.</p>
+  {% if can('create_application') and registration_open(competition) %}
+  <p><a class="btn btn-primary" href="{{ url_for('cabinet.application_new', competition_id=competition.id) }}">Заявить на соревнование</a></p>
+  {% elif not registration_open(competition) %}<p class="alert alert-warning">Регистрация закрыта.</p>{% endif %}
+  <p class="small text-muted">Новые заявки требуют согласия обеих сторон и решения администратора. Согласование не означает допуск к старту.</p>
   {% if competition.event_date < today %}
     <div class="alert alert-warning">
       Ожидает завершения: дата состязания прошла. Внесите результаты всех участников.

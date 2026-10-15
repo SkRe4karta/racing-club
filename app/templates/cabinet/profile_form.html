@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Редактирование профиля — Racing Club{% endblock %}
+{% block content %}
+<h1>Редактирование профиля {{ 'владельца' if side == 'owner' else 'жокея' }}</h1>
+<form method="POST" class="card p-4 account-card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="full_name">ФИО</label><input id="full_name" name="full_name" class="form-control mb-3" maxlength="150" required value="{{ request.form.get('full_name', profile.full_name) }}">
+<label for="address">Адрес</label><input id="address" name="address" class="form-control mb-3" maxlength="255" value="{{ request.form.get('address', profile.address or '') }}">
+{% if side == 'owner' %}<label for="phone">Телефон</label><input id="phone" name="phone" class="form-control mb-3" maxlength="50" value="{{ request.form.get('phone', profile.phone or '') }}">
+{% else %}<label for="age">Возраст</label><input type="number" id="age" name="age" class="form-control mb-3" min="1" max="100" required value="{{ request.form.get('age', profile.age) }}"><p>Спортивный рейтинг: {{ profile.rating }}. Самостоятельное изменение рейтинга недоступно.</p>{% endif %}
+<button class="btn btn-primary" type="submit">Сохранить профиль</button>
+<a href="{{ url_for('cabinet.dashboard') }}" class="btn btn-outline-secondary mt-3">В кабинет</a>
+</form>
+{% endblock %}

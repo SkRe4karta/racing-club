@@ -7,6 +7,8 @@
   <p>Роль: {{ current_user.role }}</p>
   {% if current_user.owner %}<p><a href="{{ url_for('owners.detail_owner', owner_id=current_user.owner_id) }}">Ваш профиль владельца</a></p>{% endif %}
   {% if current_user.jockey %}<p><a href="{{ url_for('jockeys.detail_jockey', jockey_id=current_user.jockey_id) }}">Ваш профиль жокея</a></p>{% endif %}
+  {% if can('cabinet') %}<p><a class="btn btn-primary" href="{{ url_for('cabinet.dashboard') }}">Личный кабинет</a></p>{% endif %}
+  <p><a href="{{ url_for('cabinet.notifications') }}">Уведомления · {{ unread_notifications }}</a></p>
   <p>Регистрация: {{ current_user.registered_at.strftime('%d.%m.%Y') }}</p>
 </div>
 {% endblock %}
