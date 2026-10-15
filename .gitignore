@@ -19,3 +19,13 @@ htmlcov/
 *.db-*
 *.bak
 screenshots/
+
+artifacts/
+
+# Reviewed public interface captures for README only.
+!docs/screenshots/
+docs/screenshots/*
+!docs/screenshots/beta1-home.png
+!docs/screenshots/beta1-rankings.png
+!docs/screenshots/beta1-protocol.png
+!docs/screenshots/beta1-mobile.png
