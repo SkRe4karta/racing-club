@@ -3,6 +3,8 @@
 set -Eeuo pipefail
 cd "$(dirname "$0")/../.."
 sha=$(git rev-parse HEAD)
+: "${EXPECTED_SHA:?Set to TeamCity build.vcs.number}"
+[[ "$sha" == "$EXPECTED_SHA" ]] || { echo 'Checkout differs from TeamCity revision' >&2; exit 1; }
 version=2.0.0-beta.1
 suffix="${sha:0:12}-$$"
 network="racing-ci-$suffix"
@@ -11,6 +13,8 @@ web="racing-ci-web-$suffix"
 checks="racing-checks:$suffix"
 image="racing-verified:$version-${sha:0:12}"
 mkdir -p artifacts
+# An unsuccessful run must not leave an older success receipt for publication.
+rm -f artifacts/verified-image.txt artifacts/published-image.json artifacts/registry-digests.txt artifacts/stage-deploy.tar.gz
 cleanup() {
   docker rm -f "$web" "$postgres" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
@@ -25,7 +29,7 @@ docker run --rm --network none "$checks" python -m unittest tests.beta1_correcti
 # Disposable container writable layer; no named volumes are created by this job.
 docker network create --internal "$network" >/dev/null
 docker run -d --name "$postgres" --network "$network" --tmpfs /var/lib/postgresql \
-  -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18 >/dev/null
+  -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18-alpine >/dev/null
 ready=false
 for attempt in {1..60}; do
   if docker exec "$postgres" pg_isready -U postgres >/dev/null 2>&1; then ready=true; break; fi
