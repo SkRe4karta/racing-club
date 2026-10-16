@@ -1,10 +1,8 @@
 """Общие средства представления: фильтры, экспорт и защита форм."""
-import calendar
 import csv
 import io
-import secrets
 from datetime import date
-from flask import request, session, url_for, Response, render_template
+from flask import request, url_for, Response, render_template
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import selectinload
@@ -42,6 +40,9 @@ def csv_response(headers, rows, filename):
 
 
 def listing(kind):
+    if kind in ('future', 'past'):
+        from app.competition_views import browse
+        return browse(kind)
     models = {'owners': Owner, 'horses': Horse, 'jockeys': Jockey, 'future': Competition, 'past': Competition}
     model = models[kind]
     query = model.query
@@ -96,20 +97,6 @@ def listing(kind):
         'past': 'competitions/past_list.html',
     }.get(kind, f'{kind}/list.html')
     context = {'kind': kind}
-    if kind == 'future' and request.args.get('view') == 'calendar':
-        try:
-            year, month = map(int, request.args.get('month', date.today().strftime('%Y-%m')).split('-'))
-            first = date(year, month, 1)
-            if year < 2 or year > 9998:
-                raise ValueError
-        except (ValueError, OverflowError):
-            first = date.today().replace(day=1)
-        prev = (first.replace(day=1).toordinal() - 1)
-        nxt = date(first.year + (first.month == 12), first.month % 12 + 1, 1)
-        context.update(weeks=calendar.Calendar().monthdatescalendar(first.year, first.month), month=first,
-                       previous=date.fromordinal(prev).strftime('%Y-%m'), following=nxt.strftime('%Y-%m'),
-                       events=query.filter(Competition.event_date >= first, Competition.event_date < nxt).all())
-        return render_template(template, total=len(context['events']), **context)
     page = max(1, request.args.get('page', 1, type=int))
     total = query.count()
     pages = max(1, (total + 19) // 20)
@@ -119,19 +106,11 @@ def listing(kind):
 
 
 def setup_web(app):
-    app.config.setdefault('WTF_CSRF_ENABLED', True)
-    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', MAX_CONTENT_LENGTH=2 * 1024 * 1024)
-
     @app.before_request
     def validate_forms():
         id_limit = 2147483647 if db.engine.dialect.name == 'postgresql' else 9223372036854775807
         if any(isinstance(value, int) and value > id_limit for value in (request.view_args or {}).values()):
             return render_template('errors/404.html'), 404
-        session.setdefault('csrf_token', secrets.token_urlsafe(32))
-        if request.method == 'POST' and app.config['WTF_CSRF_ENABLED']:
-            token = request.form.get('csrf_token', '')
-            if not secrets.compare_digest(token, session['csrf_token']):
-                return render_template('errors/message.html', message='Срок действия формы истёк. Обновите страницу и повторите ввод.'), 400
         if request.method == 'POST':
             labels = {'full_name': 'ФИО', 'address': 'Адрес', 'phone': 'Телефон', 'nickname': 'Кличка', 'gender': 'Пол', 'title': 'Название', 'location': 'Место проведения'}
             # Ограничения длины берём из существующей схемы.
@@ -148,8 +127,9 @@ def setup_web(app):
         def performance(results):
             finished = sorted([r for r in results if r.competition.is_completed], key=lambda r:(r.competition.event_date, r.competition.event_time), reverse=True)
             wins = sum(r.place == 1 and not r.is_disqualified for r in finished)
-            return dict(count=len(finished), wins=wins, podium=sum(r.place in (1,2,3) and not r.is_disqualified for r in finished), rate=round(wins / len(finished)*100,1) if finished else None, last=finished[0] if finished else None)
-        return dict(today=date.today(), query_url=query_url, performance=performance)
+            return dict(count=len(finished), wins=wins, seconds=sum(r.place == 2 and not r.is_disqualified for r in finished), thirds=sum(r.place == 3 and not r.is_disqualified for r in finished), disqualifications=sum(r.is_disqualified for r in finished), dnf=sum(r.did_not_finish for r in finished), podium=sum(r.place in (1,2,3) and not r.is_disqualified for r in finished), rate=round(wins / len(finished)*100,1) if finished else None, last=finished[0] if finished else None)
+        from app.analytics import performance_chart, comparable_times
+        return dict(today=date.today(), query_url=query_url, performance=performance, performance_chart=performance_chart, comparable_times=comparable_times)
 
     @app.get('/health')
     def health():
@@ -159,5 +139,5 @@ def setup_web(app):
     @app.get('/competitions/<int:comp_id>/results.csv')
     def export_results(comp_id):
         comp = db.get_or_404(Competition, comp_id)
-        rows = sorted(comp.results, key=lambda r:(r.place is None, r.place or 0, r.id))
-        return csv_response(['Место','Лошадь','Жокей','Время','Статус'], [(r.place,r.horse.nickname,r.jockey.full_name,r.formatted_finish_time,'Дисквалификация' if r.is_disqualified else 'Завершено' if comp.is_completed else 'Заявлен') for r in rows], f'results-{comp.id}')
+        rows = sorted(db.session.scalars(db.select(Result).where(Result.competition_id == comp.id).options(selectinload(Result.horse), selectinload(Result.jockey))).all(), key=lambda r:(r.place is None, r.place or 0, r.id))
+        return csv_response(['Место','Лошадь','Жокей','Время','Статус'], [(r.place,r.horse.nickname,r.jockey.full_name,r.formatted_finish_time,'Дисквалификация' if r.is_disqualified else 'Не финишировал (DNF)' if r.did_not_finish else 'Завершено' if comp.is_completed else 'Заявлен') for r in rows], f'results-{comp.id}')

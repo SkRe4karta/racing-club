@@ -1,0 +1,2 @@
+{% extends 'base.html' %}
+{% block content %}<h1>Журнал административных действий</h1><p>{{ 'Полный журнал ROOT' if current_user.role == 'ROOT' else 'Только ваши административные действия' }}. Записи доступны только для чтения.</p>{% set entries = pagination.items %}{% include 'admin/_audit.html' %}{% include 'cabinet/_pagination.html' %}{% endblock %}

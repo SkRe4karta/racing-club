@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Новая заявка — Racing Club{% endblock %}
+{% block content %}
+<h1>Новая заявка на соревнование</h1>
+<p>Вы согласуете выбранную пару при отправке. Вторая сторона получит приглашение и должна подтвердить его явно.</p>
+<p>Доступны профили с активными аккаунтами. Для смены пары отмените заявку и создайте новую.</p>
+{% if not competitions or not horses or not jockeys %}<div class="alert alert-warning">Для подачи нужны соревнование с открытой регистрацией, лошадь с аккаунтом владельца и жокей с активным аккаунтом.</div>{% endif %}
+<form method="POST" class="card p-4 account-card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="competition_id">Соревнование</label><select class="form-select mb-3" id="competition_id" name="competition_id" required>
+<option value="">Выберите соревнование</option>{% for comp in competitions %}<option value="{{ comp.id }}" {% if request.form.get('competition_id', request.args.get('competition_id')) == comp.id|string %}selected{% endif %}>{{ comp.title }} · {{ comp.formatted_date }} {{ comp.formatted_time }}</option>{% endfor %}</select>
+<label for="horse_id">{{ 'Своя лошадь' if current_user.role == 'OWNER' else 'Лошадь' }}</label>
+<select class="form-select mb-3" id="horse_id" name="horse_id" required><option value="">Выберите лошадь</option>
+{% for horse in horses %}<option value="{{ horse.id }}" {% if request.form.get('horse_id', request.args.get('horse_id')) == horse.id|string %}selected{% endif %}>{{ horse.nickname }} · {{ horse.owner.full_name }}</option>{% endfor %}</select>
+{% if current_user.role == 'JOCKEY' %}<p>Жокей: {{ current_user.jockey.full_name }} (вы)</p>
+{% else %}<label for="jockey_id">Жокей</label><select class="form-select mb-3" id="jockey_id" name="jockey_id" required><option value="">Выберите жокея</option>
+{% for jockey in jockeys %}<option value="{{ jockey.id }}" {% if request.form.get('jockey_id') == jockey.id|string %}selected{% endif %}>{{ jockey.full_name }} · рейтинг {{ jockey.rating }}</option>{% endfor %}</select>{% endif %}
+<button type="submit" class="btn btn-primary" {% if not competitions or not horses or not jockeys %}disabled{% endif %}>Отправить приглашение</button>
+<a class="btn btn-outline-secondary mt-3" href="{{ url_for('cabinet.dashboard') }}">В кабинет</a>
+</form>
+{% endblock %}

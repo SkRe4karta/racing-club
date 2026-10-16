@@ -3,6 +3,7 @@
   {{ competition.title }} — Итоговый протокол
 {% endblock %}
 {% block content %}
+<p><a class="btn btn-primary" href="{{ url_for('predictions.detail', comp_id=competition.id) }}">Спортивные прогнозы ↗</a></p>
   <div class="page-heading">
     <div>
       <div class="section-kicker">
@@ -82,7 +83,7 @@
                 </td>
                 <td>
                   <span class="badge {{ 'badge-disqualified' if r.is_disqualified else 'badge-completed' }}">
-                    {{ 'Дисквалификация' if r.is_disqualified else 'Финишировал' }}
+                    {{ 'Дисквалификация' if r.is_disqualified else 'Не финишировал (DNF)' if r.did_not_finish else 'Финишировал' }}
                   </span>
                 </td>
               </tr>
@@ -96,10 +97,11 @@
       </div>
     {% endif %}
   </div>
+  {% if can('manage_system') %}<p><a class="btn btn-outline-secondary" href="{{ url_for('admin.correct', identifier=competition.id) }}">Коррекция ROOT с сохранением истории</a></p>{% endif %}
   <p class="small text-muted mt-3">
     Результаты зафиксированы. Изменение завершённого состязания недоступно.
   </p>
-  <a class="btn btn-outline-secondary" href="{{ url_for('competitions.past_list') }}">
-    ← Все прошедшие состязания
+  <a class="btn btn-outline-secondary" href="{{ url_for('competitions.index',view='calendar',month=request.args.get('month'),day=request.args.get('day','')) if request.args.get('view') == 'calendar' else url_for('competitions.index',view='past') }}">
+    ← {{ 'Календарь соревнований' if request.args.get('view') == 'calendar' else 'Все прошедшие соревнования' }}
   </a>
 {% endblock %}

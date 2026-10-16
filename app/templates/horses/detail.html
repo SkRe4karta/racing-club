@@ -51,5 +51,18 @@
       </div>
     </div>
   </div>
+  {% if can('manage_horse', horse) %}
+  <div class="d-flex gap-2 flex-wrap my-3">
+    <a class="btn btn-primary" href="{{ url_for('horses.edit_horse', horse_id=horse.id) }}">Редактировать</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('cabinet.application_new', horse_id=horse.id) }}">Заявить на соревнование</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('cabinet.applications', horse_id=horse.id) }}">Заявки лошади</a>
+  </div>
+  <h2>Предстоящие заявки</h2>
+  <p>Согласованная заявка ожидает решения администратора и не является допуском.</p>
+  <ul>{% for item in applications if item.is_active and not item.competition.is_completed %}
+  <li><a href="{{ url_for('cabinet.application_detail', application_id=item.id) }}">{{ item.competition.title }}</a> · {{ item.status_label }}</li>
+  {% else %}<li>Предстоящих заявок нет.</li>{% endfor %}</ul>
+  <p class="small text-muted">Удаление лошадей через интерфейс не поддерживается: связи и история сохраняются.</p>
+  {% endif %}
   {% include 'components/performance.html' %}
 {% endblock %}

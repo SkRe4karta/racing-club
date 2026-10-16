@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% from 'components/ui.html' import section_heading, quick_action, icon %}
+{% block title %}{{ 'Системная панель' if system else 'Управление клубом' }} — Racing Club{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><span class="eyebrow">{{ 'ROOT / СИСТЕМА' if system else 'ADMIN / СПОРТ' }}</span>
+    <h1>{{ 'Системная панель' if system else 'Управление клубом' }}</h1>
+    <p>{{ 'Управление клубом, пользователями и соревнованиями' if system else 'Соревнования, допуск участников и официальные результаты' }}</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('admin.competition_new') }}">Создать соревнование ↗</a>
+</div>
+<div class="metric-grid">
+  {% for label, count in counts.items() %}<article class="stat-card"><span>{{ label }}</span><strong>{{ count }}</strong></article>{% endfor %}
+</div>
+<section class="dashboard-section" aria-label="Быстрые действия">
+  {{ section_heading('Быстрые действия') }}
+  <div class="action-grid">
+    {% if system %}{{ quick_action('root.users','Пользователи и роли','Аккаунты, права и доступ','users') }}{% endif %}
+    {{ quick_action('admin.competitions','Управление соревнованиями','Календарь, стартовые списки и результаты','calendar') }}
+    {{ quick_action('admin.applications','Заявки и допуск','Согласованные пары и решения','check') }}
+    {{ quick_action('admin.audit','Журнал действий','История административных операций','list') }}
+    {% if system %}
+      {{ quick_action('owners.list_owners','Владельцы','Профили и лошади клуба','users') }}
+      {{ quick_action('jockeys.list_jockeys','Жокеи','Спортсмены и их выступления','users') }}
+      {{ quick_action('horses.list_horses','Лошади','Каталог и история результатов') }}
+      {{ quick_action('root.historical_profiles','Исторические профили','Профили без связанного аккаунта','shield') }}
+    {% else %}{{ quick_action('competitions.past_list','Официальные результаты','Опубликованные протоколы') }}{% endif %}
+  </div>
+</section>
+<div class="dashboard-columns">
+  <section class="panel dashboard-section">
+    {{ section_heading('Ближайшие соревнования', upcoming|length) }}
+    <div class="structured-list">
+      {% for comp in upcoming %}<a class="list-row" href="{{ url_for('admin.competition_detail', identifier=comp.id) }}">
+        <span class="date-chip">{{ comp.event_date.strftime('%d.%m') }}<small>{{ comp.formatted_time }}</small></span>
+        <span class="list-copy"><strong>{{ comp.title }}</strong><small>{{ comp.location }}</small></span>
+        <span aria-hidden="true">↗</span>
+      </a>{% else %}<div class="empty-state">Предстоящих соревнований нет.</div>{% endfor %}
+    </div>
+    <a class="text-link" href="{{ url_for('admin.competitions', status='planned') }}">Все соревнования ↗</a>
+  </section>
+  <section class="panel dashboard-section">
+    {{ section_heading('Ожидают допуска', waiting|length) }}
+    <div class="structured-list">
+      {% for item in waiting %}<a class="list-row" href="{{ url_for('admin.competition_detail', identifier=item.competition_id) }}">
+        <span class="count-badge">{{ item.id }}</span><span class="list-copy"><strong>{{ item.horse.nickname }} / {{ item.jockey.full_name }}</strong><small>{{ item.competition.title }}</small></span><span aria-hidden="true">↗</span>
+      </a>{% else %}<div class="empty-state">Все согласованные заявки рассмотрены.</div>{% endfor %}
+    </div>
+    <a class="text-link" href="{{ url_for('admin.applications', status='pending_admin') }}">Открыть заявки ↗</a>
+  </section>
+</div>
+<section class="panel dashboard-section">
+  {{ section_heading('Последние административные события') }}
+  <div class="structured-list">
+    {% for entry in entries %}<div class="list-row"><span class="count-badge">{{ entry.id }}</span><span class="list-copy"><strong>{{ audit_labels.get(entry.action, entry.action) }}</strong><small>{{ entry.created_at.strftime('%d.%m.%Y %H:%M') }} UTC · {{ entry.actor.role }} · {{ entry.object_type }} № {{ entry.object_id }}</small></span></div>{% else %}<div class="empty-state">Административных событий пока нет.</div>{% endfor %}
+  </div>
+  <a class="text-link" href="{{ url_for('admin.audit') }}">Весь журнал ↗</a>
+</section>
+<section class="system-summary panel">
+  <span class="action-icon">{{ icon('shield') }}</span><div><h2>Состояние системы</h2><p>Данные клуба доступны · Racing Club {{ config.VERSION }} · Часовой пояс {{ config.CLUB_TIMEZONE }}</p><p class="text-muted">{{ 'Полный аудит доступен ROOT. Личные согласия дают только спортивные стороны.' if system else 'Системные настройки доступны ROOT. Протоколы публикуются после начала соревнования.' }}</p></div>
+</section>
+{% endblock %}

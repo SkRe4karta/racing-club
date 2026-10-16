@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from sqlalchemy.orm import selectinload
 from app import db
 from app.models import Owner
+from app.permissions import permission_required
 
 owners_bp = Blueprint('owners', __name__)
 
@@ -11,6 +12,7 @@ def list_owners():
     return listing('owners')
 
 @owners_bp.route('/add', methods=['GET', 'POST'])
+@permission_required('create_owner')
 def add_owner():
     if request.method == 'POST':
         full_name = request.form.get('full_name', '').strip()

@@ -3,10 +3,11 @@ import csv
 import io
 import re
 import unittest
-from datetime import date, time
+from datetime import date, time, timedelta
 from app import db
 from app.models import Owner, Horse, Jockey, Competition, Result
 from app.services import create_future_competition, create_completed_competition_direct, complete_planned_competition, parse_time_input
+from tests.support import legacy_competition, legacy_completed
 import verify_acceptance as acceptance
 
 
@@ -15,7 +16,7 @@ class ModernizationTests(unittest.TestCase):
     tearDown = acceptance.VerificationTestCase.tearDown
 
     def planned(self):
-        return create_future_competition('Проверка старта', date(2026, 11, 10), time(12), 'Москва', [
+        return legacy_competition('Проверка старта', date(2026, 11, 10), time(12), 'Москва', [
             {'horse_id': self.horse1.id, 'jockey_id': self.jockey1.id},
             {'horse_id': self.horse2.id, 'jockey_id': self.jockey2.id},
         ])
@@ -68,18 +69,22 @@ class ModernizationTests(unittest.TestCase):
                 parse_time_input(value)
         self.assertEqual(parse_time_input('02:04,50'), 124.5)
         comp = self.planned()
+        comp.event_date = date.today() - timedelta(days=1)
+        db.session.commit()
         rows = list(comp.results)
         with self.assertRaises(ValueError):
-            complete_planned_competition(comp.id, {rows[0].id:{'time_str':'120', 'is_disqualified':True}, rows[1].id:{'time_str':'121'}})
+            complete_planned_competition(comp.id, {rows[0].id:{'time_str':'120', 'is_disqualified':True}, rows[1].id:{'time_str':'121'}}, actor=self.actor)
         self.assertEqual(db.session.get(Competition, comp.id).status, 'planned')
         self.assertTrue(all(r.finish_time_seconds is None for r in comp.results))
 
     def test_atomic_failure_missing_result_and_foreign_ids(self):
         comp = self.planned()
+        comp.event_date = date.today() - timedelta(days=1)
+        db.session.commit()
         row = comp.results[0]
         for data in [{row.id:{'time_str':'120'}}, {r.id:{'time_str':'bad' if r.id != row.id else '120'} for r in comp.results}]:
             with self.assertRaises(ValueError):
-                complete_planned_competition(comp.id, data)
+                complete_planned_competition(comp.id, data, actor=self.actor)
             self.assertEqual(db.session.get(Competition, comp.id).status, 'planned')
             self.assertTrue(all(r.place is None and r.finish_time_seconds is None for r in comp.results))
         count = Competition.query.count()
@@ -89,30 +94,32 @@ class ModernizationTests(unittest.TestCase):
             self.assertEqual(Competition.query.count(), count)
 
     def test_post_flows_disqualification_alignment_and_readonly(self):
-        payload = {'title':'Готовый протокол', 'event_date':'2026-09-01', 'event_time':'12:00', 'location':'Москва', 'horse_id[]':[str(self.horse1.id),str(self.horse2.id)], 'jockey_id[]':[str(self.jockey1.id),str(self.jockey2.id)], 'finish_time[]':['','121.5'], 'disq_0':'on'}
-        response = self.client.post('/competitions/past/add', data=payload, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        comp = Competition.query.filter_by(title=payload['title']).one()
-        rows = {r.horse_id:r for r in comp.results}
-        self.assertTrue(rows[self.horse1.id].is_disqualified)
-        self.assertEqual(rows[self.horse2.id].finish_time_seconds, 121.5)
-        self.assertEqual(rows[self.horse2.id].place, 1)
-        response = self.client.post(f'/competitions/complete/{comp.id}', data={f'time_{rows[self.horse2.id].id}':'1'}, follow_redirects=True)
-        self.assertIn('изменять нельзя',response.text)
-        self.assertEqual(rows[self.horse2.id].finish_time_seconds, 121.5)
         comp = self.planned()
-        payload = {f'time_{r.id}':str(120+i) for i,r in enumerate(comp.results)}
-        self.assertEqual(self.client.post(f'/competitions/complete/{comp.id}',data=payload,follow_redirects=True).status_code, 200)
-        self.assertEqual(comp.status,'completed')
+        comp.event_date = date.today() - timedelta(days=1)
+        db.session.commit()
+        first, second = comp.results
+        payload = {f'disq_{first.id}':'on', f'time_{second.id}':'121.5'}
+        self.assertEqual(self.client.post(f'/competitions/complete/{comp.id}', data=payload).status_code, 302)
+        db.session.refresh(comp)
+        self.assertTrue(first.is_disqualified)
+        self.assertEqual(second.finish_time_seconds, 121.5)
+        self.assertEqual(second.place, 1)
+        response = self.client.post(f'/competitions/complete/{comp.id}', data={f'time_{second.id}':'1'}, follow_redirects=True)
+        self.assertIn('изменять нельзя', response.text)
+        self.assertEqual(second.finish_time_seconds, 121.5)
+        self.assertEqual(comp.status, 'completed')
 
-    def test_future_post_and_mismatched_participant_arrays(self):
-        payload = {'title':'Форма старта','event_date':'2026-12-01','event_time':'12:00','location':'Москва','horse_id[]':[str(self.horse1.id)],'jockey_id[]':[str(self.jockey1.id)]}
-        self.assertEqual(self.client.post('/competitions/future/add',data=payload,follow_redirects=True).status_code,200)
-        self.assertIsNotNone(Competition.query.filter_by(title='Форма старта').first())
+    def test_future_post_and_retired_participant_bypasses(self):
+        payload = {'title':'Форма старта','event_date':(date.today()+timedelta(days=10)).isoformat(),
+                   'event_time':'12:00','location':'Москва','distance':'1600','max_participants':'20'}
+        self.assertEqual(self.client.post('/competitions/future/add',data=payload).status_code,302)
+        comp = Competition.query.filter_by(title='Форма старта').one()
+        self.assertEqual(comp.results, [])
         count = Competition.query.count()
-        payload['horse_id[]'].append(str(self.horse2.id))
-        response=self.client.post('/competitions/future/add',data=payload)
-        self.assertIn('жокея',response.text)
+        payload['horse_id[]'] = str(self.horse1.id)
+        payload['jockey_id[]'] = str(self.jockey1.id)
+        self.assertEqual(self.client.post('/competitions/future/add',data=payload).status_code,400)
+        self.assertEqual(self.client.post('/competitions/past/add',data=payload).status_code,410)
         self.assertEqual(Competition.query.count(),count)
 
     def test_invalid_forms_keep_values_and_do_not_write(self):
@@ -139,7 +146,7 @@ class ModernizationTests(unittest.TestCase):
 
     def test_statistics_ties_and_unmodified_rating(self):
         initial=self.jockey1.rating
-        comp=create_completed_competition_direct('Ничья',date.today(),time(12),'Москва',[
+        comp=legacy_completed('Ничья',date.today(),time(12),'Москва',[
             {'horse_id':self.horse1.id,'jockey_id':self.jockey1.id,'time_str':'120'},
             {'horse_id':self.horse2.id,'jockey_id':self.jockey2.id,'time_str':'120'},
             {'horse_id':self.horse3.id,'jockey_id':self.jockey3.id,'time_str':'121'},

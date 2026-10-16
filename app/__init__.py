@@ -1,21 +1,42 @@
 import os
-import secrets
+from datetime import timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFProtect, CSRFError
 
 db = SQLAlchemy()
+migrate = Migrate()
+csrf = CSRFProtect()
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
     
     app.config.from_mapping(
-        SECRET_KEY=os.environ.get('SECRET_KEY') or secrets.token_hex(32),
+        SECRET_KEY=os.environ.get('SECRET_KEY'),
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL") or f"sqlite:///{os.path.join(app.instance_path, 'races.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SQLALCHEMY_ENGINE_OPTIONS={'hide_parameters': True},
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
+        SESSION_COOKIE_SECURE=os.environ.get('SESSION_COOKIE_SECURE', 'true').lower() == 'true',
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+        MAX_CONTENT_LENGTH=2 * 1024 * 1024,
+        AUTH_WINDOW_SECONDS=900,
+        LOGIN_LIMIT=5,
+        LOGIN_IP_LIMIT=30,
+        REGISTER_LIMIT=10,
+        VERSION='2.0.0-beta.1',
+        CLUB_TIMEZONE='Europe/Moscow',
     )
 
     if test_config:
         app.config.update(test_config)
+    if not app.config['SECRET_KEY']:
+        if app.testing:
+            app.config['SECRET_KEY'] = os.urandom(32)
+        else:
+            raise RuntimeError('Задайте постоянный случайный SECRET_KEY в окружении.')
 
     # Гарантируем наличие каталога instance
     try:
@@ -24,6 +45,18 @@ def create_app(test_config=None):
         pass
 
     db.init_app(app)
+    migrate.init_app(app, db, compare_type=True, render_as_batch=True)
+    csrf.init_app(app)
+
+    from app.auth import setup_auth
+    setup_auth(app)
+    from app.schema import setup_schema_cli
+    setup_schema_cli(app)
+
+    @app.errorhandler(CSRFError)
+    def invalid_csrf(error):
+        from flask import render_template
+        return render_template('errors/message.html', message='Срок действия формы истёк. Обновите страницу и повторите ввод.'), 400
 
     from app.web import setup_web
     setup_web(app)
@@ -41,9 +74,16 @@ def create_app(test_config=None):
     app.register_blueprint(horses_bp, url_prefix='/horses')
     app.register_blueprint(jockeys_bp, url_prefix='/jockeys')
     app.register_blueprint(competitions_bp, url_prefix='/competitions')
+    from app.routes.cabinet import cabinet_bp, setup_cabinet_context
+    app.register_blueprint(cabinet_bp, url_prefix='/cabinet')
+    setup_cabinet_context(app)
+    from app.routes.admin import admin_bp, root_bp
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(root_bp)
+    from app.routes.predictions import predictions_bp
+    from app.routes.analytics import analytics_bp
+    app.register_blueprint(predictions_bp)
+    app.register_blueprint(analytics_bp)
     app.register_blueprint(errors_bp)
-
-    with app.app_context():
-        db.create_all()
 
     return app

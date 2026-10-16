@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% set config = {'owners':('Владельцы','Контакты владельцев и их лошади','owners.add_owner','Добавить владельца'), 'horses':('Лошади','Состав клуба, характеристики и история выступлений','horses.add_horse','Добавить лошадь'), 'jockeys':('Жокеи','Спортсмены клуба, рейтинг и результаты','jockeys.add_jockey','Добавить жокея'), 'future':('Будущие состязания','Календарь стартов и заявленные участники','competitions.future_add','Создать состязание'), 'past':('Прошедшие состязания','Архив заездов и итоговые протоколы','competitions.past_add','Добавить прошедшее')} %}
-{% set info = config[kind] %}
+{% set list_config = {'owners':('Владельцы','Контакты владельцев и их лошади','owners.add_owner','Добавить владельца'), 'horses':('Лошади','Состав клуба, характеристики и история выступлений','horses.add_horse','Добавить лошадь'), 'jockeys':('Жокеи','Спортсмены клуба, рейтинг и результаты','jockeys.add_jockey','Добавить жокея'), 'future':('Будущие состязания','Календарь стартов и заявленные участники','competitions.future_add','Создать состязание'), 'past':('Прошедшие состязания','Архив заездов и итоговые протоколы','competitions.past_add','Добавить прошедшее')} %}
+{% set info = list_config[kind] %}
 {% block title %}
   {{ info[0] }} — АИС «Скачки»
 {% endblock %}
@@ -22,26 +22,16 @@
       </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-      <a class="btn btn-primary" href="{{ url_for(info[2]) }}">
+      {% if can({'owners':'create_owner', 'jockeys':'create_jockey', 'horses':'create_horse', 'future':'manage_competitions', 'past':'manage_competitions'}[kind]) %}<a class="btn btn-primary" href="{{ url_for(info[2]) }}">
         ＋ {{ info[3] }}
-      </a>
+      </a>{% endif %}
       {% if kind in ['future','past'] %}
-        <a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
+        {% if can('manage_competitions') %}<a class="btn btn-outline-success" href="{{ url_for('competitions.complete') }}">
           Завершить состязание
-        </a>
+        </a>{% endif %}
       {% endif %}
     </div>
   </div>
-  {% if kind == 'future' %}
-    <div class="tabs" aria-label="Представление">
-      <a class="btn {% if request.args.get('view') != 'calendar' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ query_url(view='list',page=1) }}">
-        Список
-      </a>
-      <a class="btn {% if request.args.get('view') == 'calendar' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ query_url(view='calendar',page=1) }}">
-        Календарь
-      </a>
-    </div>
-  {% endif %}
   <form class="filters" method="get">
     {% if request.args.get('view') == 'calendar' %}
       <input type="hidden" name="view" value="calendar">
@@ -144,49 +134,7 @@
       ↓ Экспорт CSV
     </a>
   </div>
-  {% if weeks is defined %}
-    <div class="card">
-      <div class="calendar-tools">
-        <a class="btn btn-outline-secondary" href="{{ query_url(month=previous) }}" aria-label="Предыдущий месяц">
-          ←
-        </a>
-        <h2 class="mb-0">
-          {{ ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][month.month-1] }} {{ month.year }}
-        </h2>
-        <a class="btn btn-outline-secondary" href="{{ query_url(month=following) }}" aria-label="Следующий месяц">
-          →
-        </a>
-      </div>
-      <div class="calendar-scroll">
-        <div class="calendar">
-          {% for d in ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] %}
-            <div class="calendar-weekday">
-              {{ d }}
-            </div>
-          {% endfor %}
-          {% for week in weeks %}
-            {% for day in week %}
-              <div class="calendar-day {% if day.month != month.month %}outside{% endif %} {% if day == today %}is-today{% endif %}">
-                <span class="small">
-                  {{ day.day }}
-                </span>
-                {% for c in events if c.event_date == day %}
-                  <a class="calendar-event" href="{{ url_for('competitions.future_detail',comp_id=c.id) }}">
-                    {{ c.formatted_time }} · {{ c.title }}
-                  </a>
-                {% endfor %}
-              </div>
-            {% endfor %}
-          {% endfor %}
-        </div>
-      </div>
-      {% if not events %}
-        <div class="empty-state">
-          В этом месяце нет состязаний с выбранными фильтрами.
-        </div>
-      {% endif %}
-    </div>
-  {% elif items %}
+  {% if items %}
     <div class="card">
       <div class="table-responsive">
         <table class="table table-hover">

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Мои прогнозы — Racing Club{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">ЛИЧНАЯ АНАЛИТИКА</span><h1>Мои прогнозы</h1><p>Ваш выбор, официальные результаты и точность.</p></div><a class="btn btn-primary" href="{{ url_for('predictions.index') }}">Выбрать заезд ↗</a></div>
+<div class="stat-inline">{% for label,value in [('Всего прогнозов',summary.total),('Победитель · точность', (summary.winner_rate|string + '%') if summary.winner_rate is not none else '—'),('Точная тройка', (summary.trio_rate|string + '%') if summary.trio_rate is not none else '—'),('Позиции тройки', (summary.slot_rate|string + '%') if summary.slot_rate is not none else '—')] %}<div class="stat-card"><span>{{ label }}</span><strong>{{ value }}</strong></div>{% endfor %}</div>
+<p class="text-muted">Оценено: {{ summary.winners }} прогнозов победителя, {{ summary.trios }} точных троек, {{ summary.slots }} позиций. Неопределённые и выбывшие исключены.</p>
+<div class="chart-panel"><h2>Точность по режимам, %</h2><div class="sport-chart" data-chart='{{ {"labels":["Победитель","Точная тройка","Позиции"],"values":[summary.winner_rate,summary.trio_rate,summary.slot_rate]}|tojson }}'></div></div>
+<div class="prediction-history">
+{% for prediction in pagination.items %}
+<article class="panel prediction-history-card">
+  <header class="prediction-history-heading">
+    <div><h2><a href="{{ url_for('predictions.detail', comp_id=prediction.competition_id) }}">{{ prediction.competition.title }} ↗</a></h2>
+      <p><time datetime="{{ prediction.competition.event_date.isoformat() }}">{{ prediction.competition.formatted_date }}</time> · Выбор обновлён {{ prediction.updated_at.strftime('%d.%m.%Y %H:%M') }} UTC</p></div>
+    <span class="badge badge-planned">{{ 'Победитель' if prediction.mode == 'winner' else 'Первая тройка' }}</span>
+  </header>
+  {% include 'predictions/_result.html' %}
+</article>
+{% else %}<div class="empty-state">У вас пока нет прогнозов. Выберите ближайший заезд и проверьте знание спорта.</div>{% endfor %}
+</div>
+{% include 'cabinet/_pagination.html' %}
+{% endblock %}

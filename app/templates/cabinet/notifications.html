@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Уведомления — Racing Club{% endblock %}
+{% block content %}
+<h1>Уведомления · {{ unread_notifications }} непрочитанных</h1>
+<div class="card p-4"><ul class="inbox-list">
+{% for item in pagination.items %}<li><a href="{{ url_for('cabinet.notification_detail', notification_id=item.id) }}">{{ item.message }}</a> · {{ item.created_at.strftime('%d.%m.%Y %H:%M') }} UTC · {{ 'Прочитано' if item.read_at else 'Новое' }}</li>
+{% else %}<li class="empty-state">Уведомлений пока нет.</li>{% endfor %}</ul></div>
+{% include 'cabinet/_pagination.html' %}
+{% endblock %}
