@@ -21,6 +21,8 @@ htmlcov/
 screenshots/
 
 artifacts/
+.static-tools/
+.static-tools/
 
 # Reviewed public interface captures for README only.
 !docs/screenshots/

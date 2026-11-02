@@ -1,0 +1,9 @@
+{
+  "step": [
+    {"name": "Prepare pinned static analyzers", "script": "bash scripts/ci/prepare-static-analysis.sh", "mode": "default"},
+    {"name": "Quality — Ruff BLOCKER policy", "script": "bash scripts/ci/check-quality.sh", "mode": "execute_always"},
+    {"name": "Security — Bandit HIGH severity AND HIGH confidence", "script": "bash scripts/ci/check-security.sh", "mode": "execute_always"},
+    {"name": "Secrets — Gitleaks history and working tree", "script": "bash scripts/ci/check-secrets.sh", "mode": "execute_always"},
+    {"name": "Static analysis HTML report", "script": "bash scripts/ci/static-analysis.sh summary", "mode": "execute_always"}
+  ]
+}
