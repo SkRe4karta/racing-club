@@ -27,10 +27,22 @@ git diff --check
 docker build --target checks -t "$checks" .
 mkdir -p artifacts/tests
 rm -f artifacts/tests/unit.xml artifacts/tests/integration.xml artifacts/tests/ci-integration.xml artifacts/tests/postgres.xml
-docker run --rm --network none --user "$(id -u):$(id -g)" -e LAB7_GIT_SHA="$sha" \
-  -v "$PWD/artifacts/tests:/app/artifacts/tests" "$checks" python scripts/ci/run_tests.py unit
-docker run --rm --network none --user "$(id -u):$(id -g)" -e LAB7_GIT_SHA="$sha" \
-  -v "$PWD/artifacts/tests:/app/artifacts/tests" "$checks" python scripts/ci/run_tests.py ci-integration
+run_test_suite() {
+  local suite="$1" test_network="$2" container="racing-tests-$suffix-$1" result=0
+  docker create --name "$container" --network "$test_network" \
+    -e LAB7_GIT_SHA="$sha" -e LAB7_REPORT_DIR=/tmp/racing-test-reports \
+    -e RACING_TEST_POSTGRES_URL="${3:-}" \
+    "$checks" python scripts/ci/run_tests.py "$suite" >/dev/null
+  docker start -a "$container" || result=$?
+  docker cp "$container:/tmp/racing-test-reports/$suite.xml" "artifacts/tests/$suite.xml" || result=1
+  docker rm "$container" >/dev/null
+  if [[ -s "artifacts/tests/$suite.xml" ]]; then
+    printf "##teamcity[importData type='junit' path='artifacts/tests/%s.xml']\n" "$suite"
+  fi
+  return "$result"
+}
+run_test_suite unit none
+run_test_suite ci-integration none
 # Disposable container writable layer; no named volumes are created by this job.
 docker network create --internal "$network" >/dev/null
 docker run -d --name "$postgres" --network "$network" --tmpfs /var/lib/postgresql \
@@ -41,10 +53,7 @@ for attempt in {1..60}; do
   sleep 1
 done
 "$ready" || { echo 'PostgreSQL did not become ready' >&2; exit 1; }
-docker run --rm --network "$network" \
-  --user "$(id -u):$(id -g)" -e LAB7_GIT_SHA="$sha" \
-  -e RACING_TEST_POSTGRES_URL="postgresql+psycopg://postgres@$postgres/postgres" \
-  -v "$PWD/artifacts/tests:/app/artifacts/tests" "$checks" python scripts/ci/run_tests.py postgres
+run_test_suite postgres "$network" "postgresql+psycopg://postgres@$postgres/postgres"
 docker build --target runtime --build-arg VCS_REF="$sha" -t "$image" .
 docker exec "$postgres" createdb -U postgres racing_ci_smoke
 # Only ephemeral CI session key, no production credentials.

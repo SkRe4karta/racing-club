@@ -58,7 +58,7 @@ def main(name):
                'postgres': 'tests.beta1_postgres_suite', 'ci-integration': 'tests.lab7_ci_suite'}
     if name not in modules:
         raise SystemExit('Usage: python scripts/ci/run_tests.py {unit|integration|ci-integration|postgres}')
-    output = Path('artifacts/tests') / f'{name}.xml'
+    output = Path(os.environ.get('LAB7_REPORT_DIR', 'artifacts/tests')) / f'{name}.xml'
     output.parent.mkdir(parents=True, exist_ok=True)
     output.unlink(missing_ok=True)
     if name == 'postgres' and not os.environ.get('RACING_TEST_POSTGRES_URL'):
@@ -100,7 +100,8 @@ def main(name):
     ET.ElementTree(root).write(temporary, encoding='utf-8', xml_declaration=True)
     temporary.replace(output)
     print(f'JUnit report: {output}; Git SHA: {sha}')
-    print(f'##teamcity[importData type="junit" path="{output}"]')
+    if not os.environ.get('LAB7_REPORT_DIR'):
+        print(f'##teamcity[importData type="junit" path="{output}"]')
     return 0 if result.wasSuccessful() else 1
 
 
