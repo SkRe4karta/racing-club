@@ -5,8 +5,13 @@ cd "$(dirname "$0")/../.."
 : "${DOCKERHUB_REPOSITORY:?Set namespace/racing-club}"
 : "${DOCKERHUB_USER:?Protected TeamCity parameter}"
 : "${DOCKERHUB_TOKEN:?Protected TeamCity password parameter}"
+: "${EXPECTED_SHA:?Set to TeamCity build.vcs.number}"
+: "${BUILD_ID:?Set to TeamCity build.id}"
 [[ "$TC_BRANCH" == dev ]] || { echo 'Only accepted dev builds can publish' >&2; exit 1; }
 sha=$(git rev-parse HEAD)
+[[ "$sha" == "$EXPECTED_SHA" && "$BUILD_ID" =~ ^[0-9]+$ ]]
+[[ "$DOCKERHUB_REPOSITORY" == skre4karta/racing-club ]]
+rm -f artifacts/published-image.json artifacts/registry-digests.txt artifacts/stage-deploy.tar.gz
 image="racing-verified:2.0.0-beta.1-${sha:0:12}"
 test -s artifacts/verified-image.txt
 # Exact local image ID must match the successful verification output.
@@ -21,5 +26,20 @@ export DOCKER_CONFIG="$registry_config"
 printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USER" --password-stdin >/dev/null
 tag="$DOCKERHUB_REPOSITORY:2.0.0-beta.1-${sha:0:12}"
 docker tag "$image" "$tag"
-docker push "$tag"
-docker image inspect --format '{{join .RepoDigests "\n"}}' "$tag" > artifacts/registry-digests.txt
+# The push response identifies the manifest just published, even after a rebuild.
+docker push "$tag" | tee artifacts/push-result.txt
+manifest=$(sed -nE 's/^.*digest: (sha256:[a-f0-9]{64}) size:.*$/\1/p' artifacts/push-result.txt)
+[[ "$manifest" =~ ^sha256:[a-f0-9]{64}$ ]]
+digest="$DOCKERHUB_REPOSITORY@$manifest"
+docker pull "$digest"
+[[ "$(docker image inspect --format '{{.Id}}' "$digest")" == "$actual" ]]
+printf '%s\n' "$digest" > artifacts/registry-digests.txt
+tar -czf artifacts/stage-deploy.tar.gz compose.stage.yaml scripts/ci/deploy-stage.sh scripts/ci/rehearse-stage.sh scripts/ci/schema-state.py scripts/smoke.py
+bundle_sha=$(sha256sum artifacts/stage-deploy.tar.gz | cut -d ' ' -f 1)
+python3 - "$sha" "$tag" "$digest" "$BUILD_ID" "$bundle_sha" <<'PY'
+import json, pathlib, sys
+sha, tag, image, build_id, bundle_sha = sys.argv[1:]
+pathlib.Path('artifacts/published-image.json').write_text(json.dumps(dict(
+    version='2.0.0-beta.1', sha=sha, tag=tag, image=image,
+    build_id=build_id, bundle_sha256=bundle_sha), indent=2) + '\n')
+PY
