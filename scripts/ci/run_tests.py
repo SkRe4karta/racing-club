@@ -63,6 +63,9 @@ def main(name):
     output.unlink(missing_ok=True)
     if name == 'postgres' and not os.environ.get('RACING_TEST_POSTGRES_URL'):
         raise SystemExit('postgres suite requires an isolated RACING_TEST_POSTGRES_URL')
+    sha = os.environ.get('LAB7_GIT_SHA') or subprocess.check_output(
+        ['git', 'rev-parse', 'HEAD'], text=True
+    ).strip()
     suite = unittest.defaultTestLoader.loadTestsFromName(modules[name])
     stream = sys.stderr if not sys.stdout.isatty() else sys.stdout
     runner = unittest.TextTestRunner(stream=stream, verbosity=2, resultclass=JUnitResult)
@@ -70,6 +73,8 @@ def main(name):
         result = runner.run(suite)
     except KeyboardInterrupt:
         root = ET.Element('testsuite', name=name, tests='1', errors='1', failures='0')
+        props = ET.SubElement(root, 'properties')
+        ET.SubElement(props, 'property', name='git.sha', value=sha)
         case = ET.SubElement(root, 'testcase', classname='runner', name='interrupted')
         ET.SubElement(case, 'error').text = 'Test process interrupted; no successful result.'
         ET.ElementTree(root).write(output, encoding='utf-8', xml_declaration=True)
@@ -77,11 +82,8 @@ def main(name):
     root = ET.Element('testsuite', name=name, tests=str(result.testsRun),
         failures=str(sum(bool(row[2] and row[2][0] == 'failure') for row in result.cases)),
         errors=str(sum(bool(row[2] and row[2][0] == 'error') for row in result.cases)),
-        skipped=str(len(result.skipped)), time=f'{sum(row[1] for row in result.cases):.3f}')
+        skipped=str(sum(bool(row[2] and row[2][0] == 'skipped') for row in result.cases)), time=f'{sum(row[1] for row in result.cases):.3f}')
     properties = ET.SubElement(root, 'properties')
-    sha = os.environ.get('LAB7_GIT_SHA') or subprocess.check_output(
-        ['git', 'rev-parse', 'HEAD'], text=True
-    ).strip()
     ET.SubElement(properties, 'property', name='git.sha', value=sha)
     ET.SubElement(properties, 'property', name='database', value='none' if name == 'unit' else ('PostgreSQL' if os.environ.get('RACING_TEST_POSTGRES_URL') else 'SQLite'))
     for test, duration, outcome in result.cases:
