@@ -26,7 +26,7 @@ def parse_time_input(time_str: str) -> float:
             total = minutes * 60 + seconds
             if not math.isfinite(total) or round(total, 2) <= 0:
                 raise ValueError("Некорректно указано время результата")
-            return round(total, 2)
+            return round(total, 1)
         except (ValueError, OverflowError):
             raise ValueError("Некорректно указано время результата")
     else:
@@ -34,7 +34,7 @@ def parse_time_input(time_str: str) -> float:
             total = float(val)
             if not math.isfinite(total) or round(total, 2) <= 0:
                 raise ValueError("Некорректно указано время результата")
-            return round(total, 2)
+            return round(total, 1)
         except (ValueError, OverflowError):
             raise ValueError("Некорректно указано время результата")
 
