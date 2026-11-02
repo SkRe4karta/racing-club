@@ -1,153 +1,111 @@
-# TeamCity / ЛР №5: подтверждённое состояние и приёмка исправлений
+# TeamCity / ЛР №5 — доставка на существующий STAGE
 
-На 16.10.2026 PR №1 действительно объединён в dev после APPROVED от dro4karta.
-Dev SHA: `0fb75e47259adfda9a609438904149bf106f8ab6`. Существующий скриншот
-16.10.2026 04:54:32 показывает успешную Dev Verify and Publish #1 (build ID 203),
-агент RACING-CI, шаги Verify Racing Club и Publish Docker Image. Feature Verify #2
-указана в PR №1; текущий сервер повторно проверить не удалось.
+## Стенд и сохранённые результаты
 
-**Новые сценарии ниже подготовлены и проверены локально. В TeamCity они ещё не
-установлены и на VM не запускались. CD пока нельзя считать принятым.** Текущий
-sandbox запрещает даже localhost/SSH sockets; VirtualBox IPC недоступен. Файлы
-конфигурации VM прочитаны без изменений. Настоящие VCS triggers, состояние агентов,
-SSH host keys и deployment требуется проверить в сессии с доступом к хосту.
+GitHub: https://github.com/SkRe4karta/racing-club. PR №1 объединён в dev после
+APPROVED от dro4karta; принятый SHA `0fb75e47259adfda9a609438904149bf106f8ab6`.
+Feature Verify #2 (ID 202) и Dev Verify and Publish #1 (ID 203) успешны.
+Образ исходной Beta: `skre4karta/racing-club:2.0.0-beta.1-0fb75e47259a`,
+digest `sha256:b376a97e90d65e4d62b07b4cb16fc8763a9764c1beb08f56c55d0b620e7c5f74`.
 
-## Зафиксированные окружения
+02.11.2026 подтверждены живые VM, SSH, TeamCity Server 2026.2.1 и два
+подключённых, авторизованных, включённых агента: RACING-CI и RACING-TEST.
+TEST использует `jetbrains/teamcity-agent:2026.2.1` с доступным Docker Engine.
 
-Сохранённые `.vbox`: TEST `127.0.0.1:8081 → guest:8080`, STAGE `8082 → guest:8080`,
-PROD `8083 → guest:8080`. SSH host-порты соответственно 2221, 2222, 2223, CI 2224;
-CI UI `8111 → guest:8111`. Guest IP в NAT-правилах не задан. Это NAT-адаптер VM,
-а не буквальный проброс в 10.20.0.x. Внутренняя сеть `racing-lab` — другой адаптер.
+| VM | Внутренняя сеть | SSH основного компьютера | Назначение |
+| --- | --- | --- | --- |
+| RACING-TEST | 10.20.0.11 | 127.0.0.1:2221 | TEST, feature verify agent |
+| RACING-STAGE | 10.20.0.12 | 127.0.0.1:2222 | Beta 1 и существующая PostgreSQL |
+| RACING-PROD | 10.20.0.13 | 127.0.0.1:2223 | PROD, не изменяется |
+| RACING-CI | 10.20.0.14 | 127.0.0.1:2224 | TeamCity Server и publish/deploy agent |
 
-По исходным сведениям Beta работает на STAGE guest:8081, старый web — guest:8080.
-Поэтому сохранённое правило STAGE направляет обычный URL к старому web.
-После проверки новой версии и данных изменить только правило WEB:
+TeamCity UI: http://127.0.0.1:8111. TEST/PROD web: localhost:8081/8083.
+Требуемый STAGE web: localhost:8082 → guest:8081, bind 0.0.0.0.
+При начале сессии 02.11 проброс ещё указывал guest:8080, а Beta слушала только
+10.20.0.12:8081. Результат окончательного переключения фиксируется отдельно
+в техническом отчёте лабораторной после фактической проверки.
 
-```bash
-# Для работающей VM; сначала сохранить полный showvminfo и исходное WEB-правило.
-VBoxManage controlvm RACING-STAGE natpf1 delete WEB
-VBoxManage controlvm RACING-STAGE natpf1 'WEB,tcp,127.0.0.1,8082,,8081'
-# Откат маршрута при проблеме: удалить WEB и вернуть порт guest 8080.
-```
+## Настройки, внесённые в TeamCity Server 02.11.2026
 
-Эти команды **в данной сессии не выполнены**. Перед переключением проверить
-Beta через SSH `127.0.0.1:2222`, затем `/health`, страницы, image ID/OCI revision и
-БД; после — `http://127.0.0.1:8082`. TEST/PROD маршруты сохраняются.
-Не редактировать `.vbox` напрямую при неизвестном состоянии VirtualBox.
+Общий VCS root: `RacingClub_RacingClubGitHub1`, agent-side checkout с `.git`.
 
-## Модель STAGE и сохранность данных
+| Конфигурация | Шаги | Триггер / агент |
+| --- | --- | --- |
+| RacingClub_FeatureVerify | verify.sh | VCS +:feature/*; RACING-TEST |
+| RacingClub_DevVerifyPublish | verify.sh, publish.sh | VCS +:dev; RACING-CI |
+| RacingClub_StageDeploy | deploy-remote.sh | успешное завершение Dev/dev; RACING-CI |
 
-Старый проект `/opt/racing-club/compose.yaml`, `racing-club-stage`, его web:8080,
-`postgres:18-alpine`, БД `racing_club` и том
-`racing-club-stage_postgres_data:/var/lib/postgresql` сохраняются.
-Новый `compose.stage.yaml` определяет **только web** проекта `racing-club-beta1`,
-порт VM 8081 и внешнюю сеть `racing-club-stage_default`. Существование этой сети
-и Docker DNS `db` проверить на VM до приёмки. Новый PostgreSQL не создаётся.
-Имена проекта Beta и legacy специально различаются; это не переименование БД.
+Для обеих verify-конфигураций `env.EXPECTED_SHA=%build.vcs.number%`.
+Dev: `env.BUILD_ID=%teamcity.build.id%`, `env.TC_BRANCH=dev`,
+`env.DOCKERHUB_REPOSITORY=skre4karta/racing-club`; существующий Docker Hub token
+сохранён как Password только в Dev. Feature не получает registry/deploy secrets.
+Для всех трёх конфигураций максимум одновременных сборок — 1.
 
-CD принимает отдельно выбранную БД `racing_club_beta1`, `racing_stage_*` или
-`racing_demo_*`; историческая `racing_club` запрещена для этого deployment.
-Для спортивных данных сначала восстановить исторический dump в уникальную
-`racing_stage_*`, подтвердить 3/7/5/4/11 записей, выполнить adopt-legacy/upgrade/check
-на копии, проверить страницы и выбрать эту копию в приватных настройках Beta.
-Это первичное наполнение **ещё не выполнено**. Генератор seed и его ограничения
-не менялись: использовать только checks target и новую пустую `racing_demo_*`,
-accounts сохранять вне Git с 600. Runtime seed.py не содержит.
+Dev artifacts: `artifacts/*.txt`, `artifacts/published-image.json`,
+`artifacts/stage-deploy.tar.gz`. Publish проверяет verify receipt, image ID и OCI
+revision; digest берёт из ответа конкретного docker push и проверяет docker pull.
+Manifest связывает SHA, upstream build.id, image digest и SHA256 deploy-архива.
 
-Каждый новый dev deployment делает свежий pg_dump выбранной STAGE-БД, восстанавливает
-его в уникальную логическую rehearsal-БД на существующем PostgreSQL, проверяет
-baseline, миграции, `db check`, валидность ограничений и число/хеш строк пяти старых
-таблиц. Репетиционные БД не удаляются автоматически; количество и память контролировать.
-Репетиция и deployment выполняются последовательно, Python-образ на STAGE не собирается.
-При ошибке после остановки Beta автоматический downgrade не выполняется. Старый
-web:8080 продолжает работать; возврат NAT на 8080 возвращает отдельную старую систему,
-а не откатывает записи новой БД. Совместимый откат Beta проверяется отдельно.
+STAGE расположен в отдельном подпроекте `RacingClub_Deployment`. Snapshot dependency
+на Dev: sync-revisions=true, reuse only successful, cancel on failure/cancel.
+Artifact dependency: строго **sameChain**, без fallback lastSuccessful;
+`published-image.json => artifacts`, `stage-deploy.tar.gz => artifacts`.
 
-## Обязательные настройки TeamCity до merge
+Параметры STAGE:
+- `env.EXPECTED_SHA=%dep.RacingClub_DevVerifyPublish.build.vcs.number%`;
+- `env.UPSTREAM_BUILD_ID=%dep.RacingClub_DevVerifyPublish.teamcity.build.id%`;
+- `env.STAGE_KNOWN_HOSTS=/data/teamcity_agent/conf/stage_known_hosts`.
 
-Не добавлять Docker Hub/SSH-секреты на уровень общего проекта: feature не должна их
-наследовать. Не включать shell trace. Доступ к изменению параметров и настройкам
-deployment — только доверенным администраторам. Связать всю цепочку с одним Git VCS
-Root origin; clean agent-side checkout должен содержать `.git`.
+SSH Agent build feature использует прежний ключ `racing_stage_cd`, установленный
+в штатное хранилище SSH keys только подпроекта доставки. Закрытый ключ не хранится
+в Git, параметрах окружения или отчётах. Pinned ED25519 fingerprint STAGE:
+`SHA256:FgZyaoh6hzbjDVTi3J+KVlsk/HHUqHcWNTmWFQsztiM`.
+Он независимо совпал с исходными сведениями; StrictHostKeyChecking=yes.
 
-| Конфигурация | Шаги | Триггер и ограничения |
-|---|---|---|
-| Feature Verify | `bash scripts/ci/verify.sh` | VCS `+:feature/*`; без registry/deploy secrets |
-| Dev Verify and Publish (`RacingClub_DevVerifyPublish`) | verify.sh, затем publish.sh только после успеха | VCS только dev; `env.TC_BRANCH=dev` |
-| STAGE Deploy | `bash scripts/ci/deploy-remote.sh` | Finish build trigger только успешного Dev/dev; max running builds 1 |
-| PROD release/deployment | отдельная будущая приёмка релиза | без dev/feature trigger; только reviewed prod/release и ручное разрешение |
+## Обновление Beta без повторной миграции
 
-Для verify обеих конфигураций: `env.EXPECTED_SHA=%build.vcs.number%`.
-Для Dev дополнительно: `env.BUILD_ID=%teamcity.build.id%`,
-`env.DOCKERHUB_REPOSITORY=skre4karta/racing-club`, protected `env.DOCKERHUB_USER`,
-`env.DOCKERHUB_TOKEN` типа Password. Feature не вызывает publish, publish отклоняет
-любую логическую ветку кроме dev и сверяет checkout/image ID/OCI SHA с verify receipt.
-Новые обязательные параметры нужно добавить **до merge**: старые настройки
-TeamCity иначе получат явный отказ, а не ложный успех.
+На STAGE приватный файл `/home/zelyonka/racing-cd/stage-deploy.env` (600),
+значения DATABASE_URL/SECRET_KEY сохранены из работающего контейнера:
+STAGE_DATABASE_NAME=racing_club_beta1, WEB_BIND=0.0.0.0, WEB_PORT=8081.
+Файл одновременно имеет доверенный shell-синтаксис и формат Compose env file.
 
-Artifact rules Dev: `artifacts/*.txt`, `artifacts/published-image.json`,
-`artifacts/stage-deploy.tar.gz`. Manifest содержит version, полный sha, tag,
-точный repository@digest, ID исходной сборки и SHA256 архива deployment.
-Из артефактов не исполняется shell `source`; manifest разбирается как JSON.
-Для новых коммитов digest вычисляется заново; исходный Beta digest нигде не зашит.
+`compose.stage.yaml` содержит только Beta web проекта `racing-club-beta1` и
+использует внешнюю сеть `racing-club-stage_default`. Существующие контейнер
+`racing-club-stage-db-1`, postgres:18-alpine, том
+`racing-club-stage_postgres_data:/var/lib/postgresql`, историческая БД racing_club
+и старый web:8080 сохраняются. Deployment допускает только racing_club_beta1,
+racing_stage_* или racing_demo_*; реальная current_database() проверяется до записи.
 
-STAGE Deploy: snapshot dependency на Dev с enforce revisions synchronization,
-только успешной зависимостью, cancel при failed/cancelled upstream. Artifact dependency
-**Build from the same chain**, правила:
+Каждый deployment проверяет SHA/digest/build ID, архив, PostgreSQL и схему целевой
+БД. При совпадении revision с Alembic head образа (сейчас 0005_predictions):
+**нет pg_dump, rehearsal DB, adopt-legacy или db upgrade**. Обновляется только web,
+затем Compose --wait, сверка image ID и 10 HTTP-проверок версии/health.
 
-```text
-published-image.json => artifacts
-stage-deploy.tar.gz => artifacts
-```
+При изменении head: остановка Beta web, проверка стабильного снимка данных,
+минимальный pg_dump целевой БД, репетиция на отдельной копии, upgrade/check и
+сравнение спортивных строк. Legacy на активной БД явно отклоняется; первичное
+adopt-legacy выполняется отдельно. Исходная ручная репетиция уже выполнена до этой
+доработки, повторять её для неизменной схемы не требуется.
 
-Не брать lastSuccessful независимо от snapshot: так можно смешать разные SHA.
-`env.EXPECTED_SHA=%dep.RacingClub_DevVerifyPublish.build.vcs.number%`,
-`env.UPSTREAM_BUILD_ID=%dep.RacingClub_DevVerifyPublish.teamcity.build.id%`.
-Проверить фактические имена dependency parameters на установленном сервере.
-Диспетчер сверяет оба значения с manifest и SHA256 архива до SSH.
-Одна snapshot dependency не передаёт файлы — нужна также artifact dependency.
-[Документация зависимостей JetBrains](https://www.jetbrains.com/help/teamcity/configuring-dependencies.html).
+Файлы блокировок pipeline.lock/deploy.lock и success.json находятся в постоянном
+`/home/zelyonka/racing-cd/state`. Старший успешный upstream build ID не может быть
+заменён меньшим. Репетиция использует отдельный rehearsal.lock, чтобы не блокировать
+сама себя внутри deployment. Ошибка SSH, миграции, health или smoke возвращает
+ненулевой код; success.json обновляется атомарно только после успеха. Автоматический
+downgrade БД не выполняется. При сбое миграции требуется разбор сохранённого backup
+и журналов; после остановки web он может остаться остановлен.
 
-## SSH и приватные настройки STAGE
+## Проверка изменений и оставшаяся приёмка
 
-На доверенном deployment-агенте — отдельный SSH Agent build feature с отдельным
-загруженным ключом; закрытая часть вне Git и не в обычных env-параметрах. На STAGE
-проверить минимальные необходимые права пользователя; скрипты не делают sudo,
-не меняют Docker socket и не устанавливают агентов. Docker-права дают большой
-контроль над VM, поэтому доступ к запуску цепочки ограничить доверенным проектом.
-Ограничения authorized_keys: запрет forwarding/pty; при необходимости отдельный
-проверенный forced-command dispatcher. Реальный ключ и права здесь не установлены.
+02.11 локально: 13 CI contract tests успешны (включая отсутствие миграции при
+актуальной схеме, отказ legacy/PROD/старой сборки, ошибки миграции/health).
+Это тесты управления с подставным Docker, не доказательство живой доставки.
+Bash syntax и git diff --check успешны. Настройки уже внесены на настоящий сервер.
+Фактические номера нового feature/dev/deploy-прогона и конечный SHA на STAGE
+фиксируются в итоговом техническом отчёте после review/merge PR №2.
 
-`env.STAGE_KNOWN_HOSTS` — путь на агенте к закрытому файлу с независимо проверенным
-host key 10.20.0.12. `ssh-keyscan` сам по себе не является проверкой личности.
-Скрипт использует `BatchMode=yes`, `StrictHostKeyChecking=yes`, pinned
-UserKnownHostsFile и фиксированный адрес zelyonka@10.20.0.12; PROD не параметризуется.
-
-На STAGE один раз создать `/home/zelyonka/racing-cd/stage-deploy.env`, владелец
-zelyonka, 600, обычный файл. Это доверенный shell-файл с корректно quoted значениями,
-одновременно пригодный для Compose env file:
-
-```bash
-STAGE_DATABASE_NAME='racing_stage_<проверенная_копия>'
-STAGE_DATABASE_URL='postgresql+psycopg://<user>:<url-safe-password>@db:5432/<та_же_БД>'
-SECRET_KEY='<постоянный_секрет>'
-SESSION_COOKIE_SECURE='false'
-WEB_BIND='0.0.0.0'
-WEB_PORT='8081'
-```
-
-Секреты заполняются из защищённого источника без печати. Для HTTPS Secure=true.
-Настройки прежней `/opt/racing-club/.env` не перезаписываются. В shell-файле не должно
-быть исполняемых команд. Только доверенный владелец может его менять.
-
-## Приёмочный прогон, который ещё требуется
-
-После настоящего review PR и merge проверить VCS обнаружение нового SHA, успешные
-verify/push, manifest/build ID/digest, автоматический запуск STAGE dependency chain,
-свежий backup, фактический restore/adopt/migrate, совпадение данных, новый container
-image ID, health и 10 страниц. Проверить браузер на обычном localhost:8082 после NAT
-переключения. Убедиться, что старая сборка не перезаписывает новую: pipeline.lock,
-deploy.lock и сравнение upstream build ID; настройки max running=1 на сервере.
-Сохранить реальные build links, артефакты и скриншоты, затем повторить deployment
-того же разрешённого образа. Только после этого фиксировать CD как рабочий.
-PROD-БД/образ/маршрутизация в этой доработке не меняются.
+Документация, использованная при настройке:
+- https://www.jetbrains.com/help/teamcity/rest/teamcity-rest-api-documentation.html
+- https://www.jetbrains.com/help/teamcity/configuring-dependencies.html
+- https://www.jetbrains.com/help/teamcity/artifact-dependencies.html
+- https://www.jetbrains.com/help/teamcity/ssh-keys-management.html

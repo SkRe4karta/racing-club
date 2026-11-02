@@ -105,7 +105,7 @@ class DeploymentContracts(unittest.TestCase):
         (self.root / 'private.env').write_text('')
         (self.root / 'backup.dump').write_bytes(b'FAKE backup; never restored')
         import hashlib
-        state = dict(database='racing_club_beta1', revision=None, table_count=5,
+        state = dict(database='racing_club_beta1', revision='0005_predictions', table_count=14,
                      tables=dict(owners=dict(count=4, sha256='unchanged')))
         receipt = dict(source=state, sha='a' * 40,
             image='skre4karta/racing-club@sha256:' + 'b' * 64,
@@ -123,7 +123,9 @@ if args[0] == 'inspect':
 elif args[0] == 'image':
     print('a' * 40 if 'revision' in args[3] else 'sha256:fake-image')
 elif args[0] == 'compose':
-    if 'run' in args and 'python' in args:
+    if 'run' in args and 'python' in args and '-c' in args:
+        print('0005_predictions')
+    elif 'run' in args and 'python' in args:
         sys.stdin.read()
         state = json.loads((root / 'receipt.json').read_text())['source']
         if (root / 'migrated').exists():
@@ -150,21 +152,47 @@ elif args[0] == 'compose':
         return subprocess.run(['bash', str(self.root / 'scripts/ci/deploy-stage.sh')],
             env=self.env, text=True, capture_output=True)
 
-    def test_success_receipt_only_after_migration_and_health(self):
+    def test_current_schema_deploys_without_backup_or_migration(self):
         result = self.deploy()
         self.assertEqual(result.returncode, 0, result.stderr)
         success = json.loads((self.root / 'state/success.json').read_text())
         self.assertEqual(success['sha'], 'a' * 40)
         self.assertEqual(success['revision'], '0005_predictions')
         calls = (self.root / 'calls.log').read_text()
-        self.assertLess(calls.index('adopt-legacy'), calls.index('db upgrade'))
-        self.assertLess(calls.index('db upgrade'), calls.index('up -d'))
-        self.assertNotIn(' down ', calls)
+        for forbidden in ['adopt-legacy', 'db upgrade', 'pg_dump', 'createdb', ' down ']:
+            self.assertNotIn(forbidden, calls)
 
-    def test_migration_failure_stops_before_start_and_no_success(self):
-        self.env['FAKE_FAILURE'] = 'migration'
+    def test_legacy_database_requires_explicit_adoption(self):
+        receipt = json.loads((self.root / 'receipt.json').read_text())
+        receipt['source'].update(revision=None, table_count=5)
+        (self.root / 'receipt.json').write_text(json.dumps(receipt))
         result = self.deploy()
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn('requires explicit adoption', result.stderr)
+        self.assertNotIn('up -d', (self.root / 'calls.log').read_text())
+        self.assertFalse((self.root / 'state/success.json').exists())
+
+    def prepare_migration(self):
+        receipt = json.loads((self.root / 'receipt.json').read_text())
+        receipt['source'].update(revision='0004_admin_protocol', table_count=13)
+        (self.root / 'receipt.json').write_text(json.dumps(receipt))
+        (self.root / 'scripts/ci/rehearse-stage.sh').write_text(
+            '#!/bin/bash\necho FAKE-rehearsal >> "$FAKE_ROOT/calls.log"\n')
+
+    def test_success_receipt_only_after_migration_and_health(self):
+        self.prepare_migration()
+        result = self.deploy()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = (self.root / 'calls.log').read_text()
+        self.assertLess(calls.index('pg_dump'), calls.index('FAKE-rehearsal'))
+        self.assertLess(calls.index('FAKE-rehearsal'), calls.index('db upgrade'))
+        self.assertLess(calls.index('db upgrade'), calls.index('up -d'))
+        self.assertTrue((self.root / 'state/success.json').exists())
+
+    def test_migration_failure_stops_before_start_and_no_success(self):
+        self.prepare_migration()
+        self.env['FAKE_FAILURE'] = 'migration'
+        self.assertNotEqual(self.deploy().returncode, 0)
         self.assertNotIn('up -d', (self.root / 'calls.log').read_text())
         self.assertFalse((self.root / 'state/success.json').exists())
 

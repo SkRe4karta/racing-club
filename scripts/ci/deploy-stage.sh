@@ -8,14 +8,12 @@ cd "$(dirname "$0")/../.."
 : "${RACING_IMAGE:?Use repository@sha256:digest}"
 : "${EXPECTED_SHA:?Full successful dev revision}"
 : "${STAGE_DATABASE_NAME:?Explicit separately migrated database}"
-: "${BACKUP_PATH:?Backup of the target database}"
-: "${REHEARSAL_RECEIPT:?Successful rehearsal receipt for this image and backup}"
 : "${DEPLOY_STATE_DIR:?Persistent private directory outside the release checkout}"
 [[ "$DEPLOY_ENV" == STAGE && "$COMPOSE_PROJECT_NAME" == racing-club-beta1 ]]
 [[ "$RACING_IMAGE" =~ ^skre4karta/racing-club@sha256:[a-f0-9]{64}$ ]]
 [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
 [[ "$STAGE_DATABASE_NAME" =~ ^racing_(club_beta1|stage_[a-z0-9_]+|demo_[a-z0-9_]+)$ ]]
-[[ -s "$BACKUP_PATH" && -s "$REHEARSAL_RECEIPT" && "$DEPLOY_STATE_DIR" = /* ]]
+[[ "$DEPLOY_STATE_DIR" = /* ]]
 mkdir -p "$DEPLOY_STATE_DIR"
 exec 9>"$DEPLOY_STATE_DIR/deploy.lock"
 flock -n 9 || { echo 'Another STAGE operation is running' >&2; exit 1; }
@@ -44,33 +42,35 @@ schema_state() {
   "${compose[@]}" run --rm -T --no-deps -e EXPECTED_DATABASE_NAME="$STAGE_DATABASE_NAME" web python - < scripts/ci/schema-state.py
 }
 schema_state > "$work/before.json"
-python3 - "$REHEARSAL_RECEIPT" "$work/before.json" "$BACKUP_PATH" "$RACING_IMAGE" "$EXPECTED_SHA" <<'PY'
-import hashlib, json, sys
-receipt, before = [json.load(open(p)) for p in sys.argv[1:3]]
-with open(sys.argv[3], 'rb') as backup:
-    digest = hashlib.file_digest(backup, 'sha256').hexdigest()
-assert receipt['backup_sha256'] == digest, 'Backup differs from rehearsal'
-assert receipt['image'] == sys.argv[4] and receipt['sha'] == sys.argv[5], 'Rehearsal image differs'
-assert receipt['source'] == before, 'Database changed after backup/rehearsal'
-PY
-# Retain the previous Beta image ID for compatible web-only rollback.
-docker inspect --format '{{.Image}}' racing-club-beta1-web-1 > "$work/previous-image-id.txt"
-"${compose[@]}" stop web
-schema_state > "$work/stopped.json"
-cmp "$work/before.json" "$work/stopped.json"
+# The lab database is already migrated. Inspect the target image's migration head.
+head=$("${compose[@]}" run --rm -T --no-deps web python -c 'from alembic.config import Config; from alembic.script import ScriptDirectory; c=Config(); c.set_main_option("script_location", "migrations"); print(ScriptDirectory.from_config(c).get_current_head())')
 revision=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["revision"] or "legacy")' "$work/before.json")
-if [[ "$revision" == legacy ]]; then
-  "${compose[@]}" run --rm -T --no-deps web flask --app run adopt-legacy
-fi
-"${compose[@]}" run --rm -T --no-deps web flask --app run db upgrade
-"${compose[@]}" run --rm -T --no-deps web flask --app run db check
-schema_state > "$work/after.json"
-python3 - "$work/before.json" "$work/after.json" <<'PY'
+[[ "$head" =~ ^[a-zA-Z0-9_]+$ ]]
+# Retain the prior image for a compatible web-only rollback.
+docker inspect --format '{{.Image}}' racing-club-beta1-web-1 > "$work/previous-image-id.txt"
+if [[ "$revision" != "$head" ]]; then
+  # Legacy adoption was completed separately; never infer it on an active database.
+  [[ "$revision" != legacy ]] || { echo 'Legacy database requires explicit adoption outside CD' >&2; exit 1; }
+  "${compose[@]}" stop web
+  schema_state > "$work/stopped.json"
+  cmp "$work/before.json" "$work/stopped.json"
+  export BACKUP_PATH="$work/before.dump" REHEARSAL_RECEIPT="$work/receipt.json"
+  docker exec racing-club-stage-db-1 sh -c 'exec pg_dump -U "$POSTGRES_USER" -Fc "$1"' sh "$STAGE_DATABASE_NAME" > "$BACKUP_PATH"
+  bash scripts/ci/rehearse-stage.sh
+  "${compose[@]}" run --rm -T --no-deps web flask --app run db upgrade
+  "${compose[@]}" run --rm -T --no-deps web flask --app run db check
+  schema_state > "$work/after.json"
+  python3 - "$work/before.json" "$work/after.json" "$head" <<'CHECK'
 import json, sys
-before, after = [json.load(open(p)) for p in sys.argv[1:]]
+before, after = [json.load(open(p)) for p in sys.argv[1:3]]
 assert before['tables'] == after['tables'], 'Sporting data changed during migration'
-assert after['revision'] == '0005_predictions' and after['table_count'] == 14
-PY
+assert after['revision'] == sys.argv[3], 'Migration did not reach image head'
+CHECK
+else
+  # No schema changes: no backup, rehearsal database, adopt-legacy or upgrade.
+  cp "$work/before.json" "$work/after.json"
+  echo "Database already at image migration head: $head"
+fi
 "${compose[@]}" up -d --no-deps --no-build --wait --wait-timeout 120 web
 [[ "$(docker inspect --format '{{.Image}}' racing-club-beta1-web-1)" == "$(docker image inspect --format '{{.Id}}' "$RACING_IMAGE")" ]]
 python3 scripts/smoke.py "http://127.0.0.1:${WEB_PORT:-8081}"

@@ -49,10 +49,6 @@ export EXPECTED_SHA="$accepted_sha" RACING_IMAGE="$accepted_image" BUILD_ID="$ac
 export DEPLOY_ENV=STAGE COMPOSE_PROJECT_NAME=racing-club-beta1
 export DEPLOY_STATE_DIR="$root/state" STAGE_ENV_FILE="$settings"
 [[ "$STAGE_DATABASE_NAME" =~ ^racing_(club_beta1|stage_[a-z0-9_]+|demo_[a-z0-9_]+)$ ]]
-attempt=$(mktemp -d "$root/state/pipeline.XXXXXXXX")
-export BACKUP_PATH="$attempt/before.dump" REHEARSAL_RECEIPT="$attempt/receipt.json"
-docker exec racing-club-stage-db-1 sh -c 'exec pg_dump -U "$POSTGRES_USER" -Fc "$1"' sh "$STAGE_DATABASE_NAME" > "$BACKUP_PATH"
-bash scripts/ci/rehearse-stage.sh
 bash scripts/ci/deploy-stage.sh
 REMOTE
 # Returning success requires every remote operation including health/smoke to pass.

@@ -26,10 +26,11 @@ export DOCKER_CONFIG="$registry_config"
 printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USER" --password-stdin >/dev/null
 tag="$DOCKERHUB_REPOSITORY:2.0.0-beta.1-${sha:0:12}"
 docker tag "$image" "$tag"
-docker push "$tag"
-# Select this repository's digest, never a different tag attached to the local image.
-digest=$(docker image inspect --format '{{join .RepoDigests "\n"}}' "$tag" | grep -E "^${DOCKERHUB_REPOSITORY}@sha256:[a-f0-9]{64}$")
-[[ "$digest" =~ ^skre4karta/racing-club@sha256:[a-f0-9]{64}$ ]]
+# The push response identifies the manifest just published, even after a rebuild.
+docker push "$tag" | tee artifacts/push-result.txt
+manifest=$(sed -nE 's/^.*digest: (sha256:[a-f0-9]{64}) size:.*$/\1/p' artifacts/push-result.txt)
+[[ "$manifest" =~ ^sha256:[a-f0-9]{64}$ ]]
+digest="$DOCKERHUB_REPOSITORY@$manifest"
 docker pull "$digest"
 [[ "$(docker image inspect --format '{{.Id}}' "$digest")" == "$actual" ]]
 printf '%s\n' "$digest" > artifacts/registry-digests.txt

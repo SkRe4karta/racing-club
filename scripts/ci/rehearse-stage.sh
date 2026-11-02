@@ -15,7 +15,7 @@ cd "$(dirname "$0")/../.."
 [[ "$RACING_IMAGE" =~ ^skre4karta/racing-club@sha256:[a-f0-9]{64}$ && "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
 [[ -s "$BACKUP_PATH" && "$DEPLOY_STATE_DIR" = /* ]]
 mkdir -p "$DEPLOY_STATE_DIR"
-exec 9>"$DEPLOY_STATE_DIR/deploy.lock"
+exec 9>"$DEPLOY_STATE_DIR/rehearsal.lock"
 flock -n 9 || { echo 'Another STAGE operation is running' >&2; exit 1; }
 work=$(mktemp -d "$DEPLOY_STATE_DIR/rehearsal.XXXXXXXX")
 rehearsal="racing_stage_rehearsal_$(date -u +%Y%m%d%H%M%S)_${RANDOM}"
@@ -41,14 +41,15 @@ assert source['tables'] == restored['tables'] and source['revision'] == restored
 PY
 revision=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["revision"] or "legacy")' "$work/before.json")
 if [[ "$revision" == legacy ]]; then "${candidate[@]}" flask --app run adopt-legacy; fi
+head=$("${candidate[@]}" python -c 'from alembic.config import Config; from alembic.script import ScriptDirectory; c=Config(); c.set_main_option("script_location", "migrations"); print(ScriptDirectory.from_config(c).get_current_head())')
 "${candidate[@]}" flask --app run db upgrade
 "${candidate[@]}" flask --app run db check
 "${candidate[@]}" python - < scripts/ci/schema-state.py > "$work/after.json"
-python3 - "$work/source.json" "$work/before.json" "$work/after.json" "$BACKUP_PATH" "$RACING_IMAGE" "$EXPECTED_SHA" "$work/receipt.json" <<'PY'
+python3 - "$work/source.json" "$work/before.json" "$work/after.json" "$BACKUP_PATH" "$RACING_IMAGE" "$EXPECTED_SHA" "$work/receipt.json" "$head" <<'PY'
 import hashlib, json, pathlib, sys
 source, before, after = [json.load(open(p)) for p in sys.argv[1:4]]
 assert before['tables'] == after['tables'], 'Restored sporting data changed'
-assert after['revision'] == '0005_predictions' and after['table_count'] == 14
+assert after['revision'] == sys.argv[8], 'Rehearsal did not reach image head'
 with open(sys.argv[4], 'rb') as backup:
     digest = hashlib.file_digest(backup, 'sha256').hexdigest()
 pathlib.Path(sys.argv[7]).write_text(json.dumps(dict(source=source, restored=after,
