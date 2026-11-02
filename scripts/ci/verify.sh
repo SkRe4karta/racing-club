@@ -25,7 +25,12 @@ git diff --exit-code
 git diff --cached --exit-code
 git diff --check
 docker build --target checks -t "$checks" .
-docker run --rm --network none "$checks" python -m unittest tests.beta1_corrections_suite -v
+mkdir -p artifacts/tests
+rm -f artifacts/tests/unit.xml artifacts/tests/integration.xml artifacts/tests/ci-integration.xml artifacts/tests/postgres.xml
+docker run --rm --network none --user "$(id -u):$(id -g)" -e LAB7_GIT_SHA="$sha" \
+  -v "$PWD/artifacts/tests:/app/artifacts/tests" "$checks" python scripts/ci/run_tests.py unit
+docker run --rm --network none --user "$(id -u):$(id -g)" -e LAB7_GIT_SHA="$sha" \
+  -v "$PWD/artifacts/tests:/app/artifacts/tests" "$checks" python scripts/ci/run_tests.py ci-integration
 # Disposable container writable layer; no named volumes are created by this job.
 docker network create --internal "$network" >/dev/null
 docker run -d --name "$postgres" --network "$network" --tmpfs /var/lib/postgresql \
@@ -37,8 +42,9 @@ for attempt in {1..60}; do
 done
 "$ready" || { echo 'PostgreSQL did not become ready' >&2; exit 1; }
 docker run --rm --network "$network" \
+  --user "$(id -u):$(id -g)" -e LAB7_GIT_SHA="$sha" \
   -e RACING_TEST_POSTGRES_URL="postgresql+psycopg://postgres@$postgres/postgres" \
-  "$checks" python -m unittest tests.beta1_postgres_suite -v
+  -v "$PWD/artifacts/tests:/app/artifacts/tests" "$checks" python scripts/ci/run_tests.py postgres
 docker build --target runtime --build-arg VCS_REF="$sha" -t "$image" .
 docker exec "$postgres" createdb -U postgres racing_ci_smoke
 # Only ephemeral CI session key, no production credentials.
