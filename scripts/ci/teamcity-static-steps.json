@@ -137,7 +137,7 @@
         }
       ]
     },
-    "artifactRules": "artifacts/*.txt\nartifacts/static-analysis/** => static-analysis"
+    "artifactRules": "artifacts/*.txt\nartifacts/static-analysis/** => static-analysis\nartifacts/tests/*.xml => tests"
   },
   "RacingClub_DevVerifyPublish": {
     "steps": {
@@ -299,7 +299,7 @@
         }
       ]
     },
-    "artifactRules": "artifacts/*.txt\nartifacts/published-image.json\nartifacts/stage-deploy.tar.gz\nartifacts/static-analysis/** => static-analysis"
+    "artifactRules": "artifacts/*.txt\nartifacts/published-image.json\nartifacts/stage-deploy.tar.gz\nartifacts/static-analysis/** => static-analysis\nartifacts/tests/*.xml => tests"
   },
   "reportTab": {
     "id": "PROJECT_EXT_4",
