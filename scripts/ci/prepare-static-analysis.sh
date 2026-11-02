@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Linux x86_64; isolated dependencies, no system installation or sudo.
 set -Eeuo pipefail
-cd "$(dirname "$0")/../.."
+config=$(cd "$(dirname "$0")" && pwd)
+cd "${STATIC_ANALYSIS_ROOT:-$config/../..}"
 tools="${STATIC_TOOLS_DIR:-$PWD/.static-tools}"
 [[ "$(uname -m)" == x86_64 ]] || { printf 'Expected Linux x86_64\n' >&2; exit 2; }
 mkdir -p artifacts/static-analysis
 rm -f artifacts/static-analysis/quality/report.json artifacts/static-analysis/security/report.json \
-  artifacts/static-analysis/secrets/report.json artifacts/static-analysis/summary.html
+  artifacts/static-analysis/secrets/report.json artifacts/static-analysis/summary.html \
+  artifacts/static-analysis/summary.json
 python3 -m venv "$tools"
-"$tools/bin/python" -m pip install --disable-pip-version-check -r scripts/ci/static-analysis-requirements.txt
+"$tools/bin/python" -m pip install --disable-pip-version-check -r "$config/static-analysis-requirements.txt"
 archive=$(mktemp)
 trap 'rm -f "$archive"' EXIT
 curl --fail --silent --show-error --location \

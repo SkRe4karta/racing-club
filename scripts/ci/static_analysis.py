@@ -17,7 +17,8 @@ import sys
 import tempfile
 
 
-ROOT = Path(__file__).resolve().parents[2]
+CONFIG = Path(__file__).resolve().parent
+ROOT = Path(os.environ.get("STATIC_ANALYSIS_ROOT", Path(__file__).resolve().parents[2])).resolve()
 OUT = Path(os.environ.get("STATIC_ANALYSIS_DIR", ROOT / "artifacts/static-analysis")).resolve()
 TARGETS = ["app", "migrations", "scripts", "tests", "run.py", "seed.py",
            "gunicorn.conf.py", "verify_acceptance.py", "verify_modernization.py"]
@@ -29,8 +30,8 @@ POLICY = {
                "F701/F702/F704/F706/F707/F722/F901. Other E4/E7/E9/F findings are advisory.",
     "security": "Bandit HIGH severity AND HIGH confidence; Bandit has no CRITICAL. "
                 "This conservative project threshold is not a native CRITICAL classification.",
-    "secrets": "Any Gitleaks finding blocks; current source tree and feature branch commits only. "
-               "Other branches are audited separately to avoid unrelated branch history blocking.",
+    "secrets": "Any Gitleaks finding blocks; all reachable Git history (--all) plus current source tree. "
+               "A shallow checkout is an infrastructure error, not a clean scan.",
 }
 
 
@@ -100,7 +101,7 @@ def secrets(tmp: Path) -> tuple[list[dict], int]:
         raise RuntimeError("Cannot enumerate working tree")
     snapshot = tmp / "tree"
     snapshot.mkdir()
-    excluded = {".git", ".venv", "venv", ".static-tools", "__pycache__", ".ruff_cache",
+    excluded = {".git", ".venv", "venv", ".static-tools", ".static-bootstrap", "__pycache__", ".ruff_cache",
                 ".pytest_cache", "artifacts", "instance", "node_modules", "htmlcov"}
     for name in files.stdout.split("\0"):
         if not name or set(Path(name).parts) & excluded:
@@ -115,16 +116,13 @@ def secrets(tmp: Path) -> tuple[list[dict], int]:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
     findings = []
-    for mode, source, scope in (("git", ROOT, "branch-history"), ("dir", snapshot, "working-tree")):
+    for mode, source, scope in (("git", ROOT, "reachable-history"), ("dir", snapshot, "working-tree")):
         path = tmp / f"gitleaks-{scope}.json"
-        command = ["gitleaks", mode, str(source), "--config", str(ROOT / "scripts/ci/gitleaks.toml"),
+        command = ["gitleaks", mode, str(source), "--config", str(CONFIG / "gitleaks.toml"),
                    "--redact=100", "--no-banner", "--exit-code", "10",
                    "--report-format", "json", "--report-path", str(path)]
         if mode == "git":
-            branch = run(["git", "branch", "--show-current"])
-            if branch.returncode or not branch.stdout.strip():
-                raise RuntimeError("Named branch checkout required for secret history scan")
-            command.append(f"--log-opts=--full-history refs/heads/{branch.stdout.strip()}")
+            command.append("--log-opts=--all")
         result = run(command)
         if result.returncode not in (0, 10) or not path.is_file():
             raise RuntimeError(f"Gitleaks {scope} execution error")
