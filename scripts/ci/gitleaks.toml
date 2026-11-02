@@ -1,0 +1,25 @@
+title = "Racing Club: default detectors plus literal passwords"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "racing-literal-password"
+description = "Literal password assignment (review every match)"
+regex = '''(?i)(?:password|passwd|pwd)\s*[:=]\s*["']([^"'\r\n]{1,})["']'''
+secretGroup = 1
+
+# Reviewed negative test inputs, not credentials. AND restricts exceptions to
+# these two test modules; a matching password elsewhere still blocks.
+[[rules.allowlists]]
+description = "Invalid synthetic password inputs in authentication regression tests"
+condition = "AND"
+paths = ['''(^|/)tests/(test_auth|test_alpha4_ui)\.py$''']
+regexTarget = "secret"
+regexes = ['''^(wrong|short|incorrect-password|not-the-new-password|AnotherLongPassword2026!|WrongPassword2026!|ДлинныйПароль2026!|  пароль с пробелами  )$''']
+
+[[rules.allowlists]]
+description = "Docker Compose environment interpolation is not a literal credential"
+condition = "AND"
+paths = ['''(^|/)compose(\.stage)?\.ya?ml$''']
+regexTarget = "secret"
+regexes = ['''^\$\{[A-Z_][A-Z_0-9]*[?:]''']

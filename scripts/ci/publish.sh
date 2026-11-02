@@ -11,6 +11,18 @@ cd "$(dirname "$0")/../.."
 sha=$(git rev-parse HEAD)
 [[ "$sha" == "$EXPECTED_SHA" && "$BUILD_ID" =~ ^[0-9]+$ ]]
 [[ "$DOCKERHUB_REPOSITORY" == skre4karta/racing-club ]]
+# Fail closed even if an operator invokes this script outside the normal steps.
+python3 - "$sha" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+for name in ('quality', 'security', 'secrets'):
+    report = json.loads(Path('artifacts/static-analysis', name, 'report.json').read_text())
+    if report.get('status') != 'PASS' or report.get('revision') != sys.argv[1]:
+        raise SystemExit('Static analysis must pass on the exact published revision')
+print('Static analysis publication gate: PASS')
+PY
 rm -f artifacts/published-image.json artifacts/registry-digests.txt artifacts/stage-deploy.tar.gz
 image="racing-verified:2.0.0-beta.1-${sha:0:12}"
 test -s artifacts/verified-image.txt

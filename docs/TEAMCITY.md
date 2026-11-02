@@ -1,5 +1,9 @@
 # TeamCity / ЛР №5 — доставка на существующий STAGE
 
+Дополнение ЛР №6: действующие шаги статического анализа, пороги, безопасные отчёты,
+восстановление и реальные результаты описаны в [LAB6_STATIC_ANALYSIS.md](LAB6_STATIC_ANALYSIS.md).
+Отчёт для университета — [LAB6_REPORT.md](LAB6_REPORT.md).
+
 ## Стенд и сохранённые результаты
 
 GitHub: https://github.com/SkRe4karta/racing-club. PR №1 объединён в dev после
