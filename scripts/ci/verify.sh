@@ -15,8 +15,9 @@ image="racing-verified:$version-${sha:0:12}"
 mkdir -p artifacts
 # An unsuccessful run must not leave an older success receipt for publication.
 rm -f artifacts/verified-image.txt artifacts/published-image.json artifacts/registry-digests.txt artifacts/stage-deploy.tar.gz
+test_containers=()
 cleanup() {
-  docker rm -f "$web" "$postgres" >/dev/null 2>&1 || true
+  docker rm -f "$web" "$postgres" "${test_containers[@]}" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -29,6 +30,7 @@ mkdir -p artifacts/tests
 rm -f artifacts/tests/unit.xml artifacts/tests/integration.xml artifacts/tests/ci-integration.xml artifacts/tests/postgres.xml
 run_test_suite() {
   local suite="$1" test_network="$2" container="racing-tests-$suffix-$1" result=0
+  test_containers+=("$container")
   docker create --name "$container" --network "$test_network" \
     -e LAB7_GIT_SHA="$sha" -e LAB7_REPORT_DIR=/tmp/racing-test-reports \
     -e RACING_TEST_POSTGRES_URL="${3:-}" \
