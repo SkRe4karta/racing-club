@@ -5,7 +5,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")/../.."
 : "${VERIFIED_IMAGE_SHA:?SHA of a successful FEATURE runtime image}"
 [[ "$VERIFIED_IMAGE_SHA" =~ ^[a-f0-9]{40}$ ]]
-image="racing-verified:2.0.0-beta.1-${VERIFIED_IMAGE_SHA:0:12}"
+image="racing-verified:2.0.0-${VERIFIED_IMAGE_SHA:0:12}"
 [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" == "$VERIFIED_IMAGE_SHA" ]]
 pg="racing-lab8-prod-rehearsal-$$"
 net="$pg-net"

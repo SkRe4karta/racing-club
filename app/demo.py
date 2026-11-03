@@ -327,7 +327,7 @@ def generate(size, seed, as_of, accounts_path):
             importer = HistoryImport(size, seed, as_of, credentials)
             importer.profiles()
             importer.log(importer.root, 'demo_initialized', 'demo', 1, _stamp(as_of), new={
-                'version': '2.0.0-beta.1', 'size': size, 'seed': seed, 'as_of': as_of.isoformat()})
+                'version': '2.0.0', 'size': size, 'seed': seed, 'as_of': as_of.isoformat()})
             importer.races()
             importer.predictions()
             db.session.flush()

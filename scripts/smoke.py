@@ -8,7 +8,7 @@ import urllib.request
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('url')
-    parser.add_argument('--version', default='2.0.0-beta.1')
+    parser.add_argument('--version', default='2.0.0')
     args = parser.parse_args()
     for path in ('/health', '/', '/horses/', '/owners/', '/jockeys/', '/competitions/past',
                  '/competitions/future', '/rankings', '/predictions/', '/auth/login'):

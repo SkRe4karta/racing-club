@@ -18,7 +18,7 @@ CMD ["python", "-m", "unittest", "tests.beta1_corrections_suite", "-v"]
 FROM base AS runtime
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="Racing Club" \
-      org.opencontainers.image.version="2.0.0-beta.1" \
+      org.opencontainers.image.version="2.0.0" \
       org.opencontainers.image.revision=$VCS_REF
 USER racing
 EXPOSE 8080

@@ -27,7 +27,7 @@ if sql.get('result') != 'PASS' or sql.get('sha') != sys.argv[1]:
 print('Static and SQL analysis publication gates: PASS')
 PY
 rm -f artifacts/published-image.json artifacts/registry-digests.txt artifacts/stage-deploy.tar.gz
-image="racing-verified:2.0.0-beta.1-${sha:0:12}"
+image="racing-verified:2.0.0-${sha:0:12}"
 test -s artifacts/verified-image.txt
 # Exact local image ID must match the successful verification output.
 actual=$(docker image inspect --format '{{.Id}}' "$image")
@@ -39,7 +39,7 @@ registry_config=$(mktemp -d)
 trap 'rm -rf "$registry_config"' EXIT
 export DOCKER_CONFIG="$registry_config"
 printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USER" --password-stdin >/dev/null
-tag="$DOCKERHUB_REPOSITORY:2.0.0-beta.1-${sha:0:12}"
+tag="$DOCKERHUB_REPOSITORY:2.0.0-${sha:0:12}"
 docker tag "$image" "$tag"
 # The push response identifies the manifest just published, even after a rebuild.
 docker push "$tag" | tee artifacts/push-result.txt
@@ -58,6 +58,6 @@ python3 - "$sha" "$tag" "$digest" "$BUILD_ID" "$bundle_sha" <<'PY'
 import json, pathlib, sys
 sha, tag, image, build_id, bundle_sha = sys.argv[1:]
 pathlib.Path('artifacts/published-image.json').write_text(json.dumps(dict(
-    version='2.0.0-beta.1', sha=sha, tag=tag, image=image,
+    version='2.0.0', sha=sha, tag=tag, image=image,
     build_id=build_id, bundle_sha256=bundle_sha), indent=2) + '\n')
 PY
