@@ -41,6 +41,10 @@ trap 'echo "STAGE deployment FAILED; private evidence: $work. No automatic DB do
 schema_state() {
   "${compose[@]}" run --rm -T --no-deps -e EXPECTED_DATABASE_NAME="$STAGE_DATABASE_NAME" web python - < scripts/ci/schema-state.py
 }
+structural_state() {
+  "${compose[@]}" run --rm -T --no-deps web python - --expected-db "$STAGE_DATABASE_NAME" < scripts/ci/schema_snapshot.py
+}
+structural_state > "$work/structure-before.json"
 schema_state > "$work/before.json"
 # The lab database is already migrated. Inspect the target image's migration head.
 head=$("${compose[@]}" run --rm -T --no-deps web python -c 'from alembic.config import Config; from alembic.script import ScriptDirectory; c=Config(); c.set_main_option("script_location", "migrations"); print(ScriptDirectory.from_config(c).get_current_head())')
@@ -48,17 +52,29 @@ revision=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["revi
 [[ "$head" =~ ^[a-zA-Z0-9_]+$ ]]
 # Retain the prior image for a compatible web-only rollback.
 docker inspect --format '{{.Image}}' racing-club-beta1-web-1 > "$work/previous-image-id.txt"
+# Both expected structures come from the exact successful DEV verification bundle.
+expected=artifacts/deployment-schema/target.json
+if [[ "$revision" != "$head" ]]; then expected=artifacts/deployment-schema/baseline.json; fi
+python3 scripts/ci/compare_schema.py --actual "$work/structure-before.json" --expected "$expected" --report "$work/preflight.json"
 if [[ "$revision" != "$head" ]]; then
   # Legacy adoption was completed separately; never infer it on an active database.
   [[ "$revision" != legacy ]] || { echo 'Legacy database requires explicit adoption outside CD' >&2; exit 1; }
   "${compose[@]}" stop web
   schema_state > "$work/stopped.json"
   cmp "$work/before.json" "$work/stopped.json"
+  "${compose[@]}" run --rm -T --no-deps -e EXPECTED_DATABASE_NAME="$STAGE_DATABASE_NAME" web python - < scripts/ci/data-fingerprint.py > "$work/data-before.json"
   export BACKUP_PATH="$work/before.dump" REHEARSAL_RECEIPT="$work/receipt.json"
   docker exec racing-club-stage-db-1 sh -c 'exec pg_dump -U "$POSTGRES_USER" -Fc "$1"' sh "$STAGE_DATABASE_NAME" > "$BACKUP_PATH"
   bash scripts/ci/rehearse-stage.sh
   "${compose[@]}" run --rm -T --no-deps web flask --app run db upgrade
   "${compose[@]}" run --rm -T --no-deps web flask --app run db check
+  structural_state > "$work/structure-after.json"
+  python3 scripts/ci/compare_schema.py --actual "$work/structure-after.json" --expected artifacts/deployment-schema/target.json --report "$work/target-comparison.json"
+  export PRESERVATION_COLUMNS
+  PRESERVATION_COLUMNS=$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["columns"]))' "$work/data-before.json")
+  "${compose[@]}" run --rm -T --no-deps -e EXPECTED_DATABASE_NAME="$STAGE_DATABASE_NAME" -e PRESERVATION_COLUMNS web python - < scripts/ci/data-fingerprint.py > "$work/data-after.json"
+  cmp "$work/data-before.json" "$work/data-after.json"
+  unset PRESERVATION_COLUMNS
   schema_state > "$work/after.json"
   python3 - "$work/before.json" "$work/after.json" "$head" <<'CHECK'
 import json, sys

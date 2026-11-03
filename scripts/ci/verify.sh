@@ -58,6 +58,14 @@ run_test_suite postgres "$network" "postgresql+psycopg://postgres@$postgres/post
 run_test_suite lab8-postgres "$network" "postgresql+psycopg://postgres@$postgres/postgres"
 mkdir -p artifacts/schema
 docker exec "$postgres" createdb -U postgres racing_lab8_schema
+baseline=$(docker run --rm --network none "$checks" python -c 'from alembic.config import Config; from alembic.script import ScriptDirectory; c=Config(); c.set_main_option("script_location","migrations"); s=ScriptDirectory.from_config(c); print(s.get_revision(s.get_current_head()).down_revision)')
+[[ "$baseline" =~ ^[a-zA-Z0-9_]+$ ]]
+docker run --rm --network "$network" -e SECRET_KEY="isolated-schema-export-only" \
+  -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
+  "$checks" flask --app run db upgrade "$baseline"
+docker run --rm --network "$network" \
+  -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
+  "$checks" python scripts/ci/schema_snapshot.py --expected-db racing_lab8_schema > artifacts/schema/baseline.json
 docker run --rm --network "$network" -e SECRET_KEY="isolated-schema-export-only" \
   -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
   "$checks" flask --app run db upgrade

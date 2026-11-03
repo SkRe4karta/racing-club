@@ -11,6 +11,25 @@ VirtualBox подтверждает работающую VM `RACING-PROD`, NAT S
 внутреннюю сеть `racing-lab`. Настройки NAT не предоставляют SSH username/identity.
 Документация проекта содержит адреса, но не подтверждённые PROD credentials.
 
+## Подтверждённый доступ и backup (03.11.2026)
+
+Владелец подтвердил пользователя zelyonka и разрешённый парольный SSH через
+127.0.0.1:2223. Read-only `hostname; id` подтвердил racing-prod. Docker требует
+sudo; отдельная TeamCity PROD SSH identity по-прежнему не настроена. Пароль
+не включается в репозиторий, artifacts или инструкции запуска.
+
+Подтверждены postgres:18-alpine, healthy racing-club-prod-db-1,
+volume racing-club-prod_postgres_data, legacy racing_club (5 спортивных таблиц),
+8230591 bytes, свободно около13GiB. После отдельного разрешения владельца создан
+custom pg_dump в защищённом root каталоге и выполнен pg_restore в disposable
+PostgreSQL18 без сети/volume. Дамп 14548 bytes, структура и hashes строк совпали:
+competitions3, horses7, jockeys5, owners5, results11. Временный контейнер удалён.
+Private backup: /var/backups/racing-club/lab8-20261103T004026Z/prod.dump (600,
+каталог700). SHA256:
+0c529f54fc5fe3b4f47fd7f07202069951b4d0b72942b6fc34aa8f37b47b4558.
+Дамп не скачивался в Git/отчёты. Это backup/restore, не PROD migration/deploy.
+До production DDL/deploy требуются отдельное разрешение и окно обслуживания.
+
 ## Минимальная настройка через собственную консоль VM
 
 1. Открыть консоль **RACING-PROD** в VirtualBox и войти существующим разрешённым

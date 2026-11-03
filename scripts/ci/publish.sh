@@ -49,7 +49,10 @@ digest="$DOCKERHUB_REPOSITORY@$manifest"
 docker pull "$digest"
 [[ "$(docker image inspect --format '{{.Id}}' "$digest")" == "$actual" ]]
 printf '%s\n' "$digest" > artifacts/registry-digests.txt
-tar -czf artifacts/stage-deploy.tar.gz compose.stage.yaml scripts/ci/deploy-stage.sh scripts/ci/rehearse-stage.sh scripts/ci/schema-state.py scripts/smoke.py
+mkdir -p artifacts/deployment-schema
+cp artifacts/schema/baseline.json artifacts/deployment-schema/baseline.json
+cp artifacts/schema/structure.json artifacts/deployment-schema/target.json
+tar -czf artifacts/stage-deploy.tar.gz compose.stage.yaml scripts/ci/deploy-stage.sh scripts/ci/rehearse-stage.sh scripts/ci/schema-state.py scripts/ci/schema_snapshot.py scripts/ci/compare_schema.py scripts/ci/data-fingerprint.py scripts/smoke.py artifacts/deployment-schema
 bundle_sha=$(sha256sum artifacts/stage-deploy.tar.gz | cut -d ' ' -f 1)
 python3 - "$sha" "$tag" "$digest" "$BUILD_ID" "$bundle_sha" <<'PY'
 import json, pathlib, sys

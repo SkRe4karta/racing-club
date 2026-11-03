@@ -31,8 +31,15 @@ import os, sys, urllib.parse
 print(urllib.parse.urlsplit(os.environ['STAGE_DATABASE_URL'])._replace(path='/' + sys.argv[1]).geturl())
 PY
 )
-candidate=("${compose[@]}" run --rm -T --no-deps -e DATABASE_URL="$rehearsal_url" -e EXPECTED_DATABASE_NAME="$rehearsal" web)
+export DATABASE_URL="$rehearsal_url"
+candidate=("${compose[@]}" run --rm -T --no-deps -e DATABASE_URL -e EXPECTED_DATABASE_NAME="$rehearsal" web)
 "${candidate[@]}" python - < scripts/ci/schema-state.py > "$work/before.json"
+"${candidate[@]}" python - --expected-db "$rehearsal" < scripts/ci/schema_snapshot.py > "$work/structure-before.json"
+"${compose[@]}" run --rm -T --no-deps web python - --expected-db "$STAGE_DATABASE_NAME" < scripts/ci/schema_snapshot.py > "$work/structure-source.json"
+python3 scripts/ci/compare_schema.py --actual "$work/structure-before.json" --expected "$work/structure-source.json" --report "$work/restore-comparison.json"
+"${candidate[@]}" python - < scripts/ci/data-fingerprint.py > "$work/data-before.json"
+"${compose[@]}" run --rm -T --no-deps -e EXPECTED_DATABASE_NAME="$STAGE_DATABASE_NAME" web python - < scripts/ci/data-fingerprint.py > "$work/data-source.json"
+cmp "$work/data-before.json" "$work/data-source.json"
 "${compose[@]}" run --rm -T --no-deps -e EXPECTED_DATABASE_NAME="$STAGE_DATABASE_NAME" web python - < scripts/ci/schema-state.py > "$work/source.json"
 python3 - "$work/source.json" "$work/before.json" <<'PY'
 import json, sys
@@ -44,6 +51,13 @@ if [[ "$revision" == legacy ]]; then "${candidate[@]}" flask --app run adopt-leg
 head=$("${candidate[@]}" python -c 'from alembic.config import Config; from alembic.script import ScriptDirectory; c=Config(); c.set_main_option("script_location", "migrations"); print(ScriptDirectory.from_config(c).get_current_head())')
 "${candidate[@]}" flask --app run db upgrade
 "${candidate[@]}" flask --app run db check
+"${candidate[@]}" python - --expected-db "$rehearsal" < scripts/ci/schema_snapshot.py > "$work/structure-after.json"
+python3 scripts/ci/compare_schema.py --actual "$work/structure-after.json" --expected artifacts/deployment-schema/target.json --report "$work/rehearsal-target.json"
+export PRESERVATION_COLUMNS
+PRESERVATION_COLUMNS=$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["columns"]))' "$work/data-before.json")
+"${compose[@]}" run --rm -T --no-deps -e DATABASE_URL -e EXPECTED_DATABASE_NAME="$rehearsal" -e PRESERVATION_COLUMNS web python - < scripts/ci/data-fingerprint.py > "$work/data-after.json"
+cmp "$work/data-before.json" "$work/data-after.json"
+unset PRESERVATION_COLUMNS
 "${candidate[@]}" python - < scripts/ci/schema-state.py > "$work/after.json"
 python3 - "$work/source.json" "$work/before.json" "$work/after.json" "$BACKUP_PATH" "$RACING_IMAGE" "$EXPECTED_SHA" "$work/receipt.json" "$head" <<'PY'
 import hashlib, json, pathlib, sys
