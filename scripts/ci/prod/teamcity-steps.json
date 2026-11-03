@@ -1,0 +1,51 @@
+{
+  "project": {
+    "id": "RacingClub_Production",
+    "name": "Racing Club Production Release",
+    "parent": "RacingClub",
+    "vcs_root": "RacingClub_RacingClubGitHub1",
+    "triggers": []
+  },
+  "build_types": [
+    {
+      "id": "RacingClub_ProdReleaseCheck",
+      "name": "PROD Release — provenance and safeguard check (no PROD access)",
+      "branch_filter": ["feature/lab8-prod-release", "dev"],
+      "triggers": [],
+      "agent_requirement": {"teamcity.agent.name": "RACING-CI"},
+      "artifact_rules": "artifacts/prod-release/** => prod-release",
+      "steps": [
+        "python3 -m unittest tests.test_prod_release -v",
+        "PROD_KNOWN_HOSTS_FILE=$PWD/.lab8-work/prod-known-hosts python3 -m scripts.ci.prod.check_ssh_host",
+        "python3 -m scripts.ci.prod.runner --mode check --request scripts/ci/prod/check-request.json"
+      ]
+    },
+    {
+      "id": "RacingClub_ProdRelease",
+      "name": "PROD Release — manual owner approved release",
+      "branch_filter": ["dev"],
+      "triggers": [],
+      "agent_requirement": {"teamcity.agent.name": "RACING-CI"},
+      "artifact_rules": "artifacts/prod-release/** => prod-release",
+      "steps": [
+        "python3 -m unittest tests.test_prod_release -v",
+        "PROD_KNOWN_HOSTS_FILE=$PWD/.lab8-work/prod-known-hosts python3 -m scripts.ci.prod.check_ssh_host",
+        "python3 -m scripts.ci.prod.runner --mode release --request /data/teamcity_agent/conf/racing-prod-release-request.json"
+      ]
+    }
+  ],
+  "required_agent_setup": {
+    "teamcity_read_only_token": "Project password parameter env.TC_BEARER_TOKEN (restricted to view_project on RacingClub)",
+    "teamcity_url_parameter": "env.TC_URL=http://10.20.0.14:8111",
+    "ssh_agent_credential": "racing_prod_cd",
+    "public_fingerprint_parameter": "PROD_SSH_KEY_FINGERPRINT",
+    "known_hosts_file": "generated in the private agent checkout by verified fingerprint check",
+    "release_request_file": "/data/teamcity_agent/conf/racing-prod-release-request.json"
+  },
+  "security": {
+    "production_owner_approval": "root-owned file on PROD validated by fixed root wrapper",
+    "automatic_triggers": false,
+    "stage_credential_reuse": false,
+    "live_database_contact_in_check_mode": false
+  }
+}

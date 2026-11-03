@@ -1,0 +1,12 @@
+{
+  "sha": "10cfdbb5c1db6b83e2f0ac08235d5dcab494c6bc",
+  "image": "skre4karta/racing-club@sha256:8ecca872b60748f1781626352eca1009031acc57ed2b3b7bf66b27ce93e9021d",
+  "dev_build": 528,
+  "stage_build": 530,
+  "database": "racing_club",
+  "target_revision": "0007_organizer_contact",
+  "target_fingerprint": "3fe4b3f00e1799f2c7543b192fcec778eb2cb48f6287bfd2e3725b056b5ca5da",
+  "source_revision": null,
+  "source_fingerprint": null,
+  "nonce": "b51e8468b5a196d3b2de4bf2447feaae"
+}
