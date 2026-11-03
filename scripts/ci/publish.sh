@@ -21,7 +21,10 @@ for name in ('quality', 'security', 'secrets'):
     report = json.loads(Path('artifacts/static-analysis', name, 'report.json').read_text())
     if report.get('status') != 'PASS' or report.get('revision') != sys.argv[1]:
         raise SystemExit('Static analysis must pass on the exact published revision')
-print('Static analysis publication gate: PASS')
+sql = json.loads(Path('artifacts/sql-analysis/report.json').read_text())
+if sql.get('result') != 'PASS' or sql.get('sha') != sys.argv[1]:
+    raise SystemExit('SQL analysis must pass on the exact published revision')
+print('Static and SQL analysis publication gates: PASS')
 PY
 rm -f artifacts/published-image.json artifacts/registry-digests.txt artifacts/stage-deploy.tar.gz
 image="racing-verified:2.0.0-beta.1-${sha:0:12}"

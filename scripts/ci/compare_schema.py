@@ -1,7 +1,26 @@
 """Fail closed on structural drift. Row counts are not schema equivalence."""
 import argparse
+import copy
+import re
 import json
 from pathlib import Path
+
+
+def canonical_structure(structure):
+    """Normalize one PG dump/restore rewrite of literal varchar arrays.
+
+    PostgreSQL can move the text[] cast onto each varchar literal during restore.
+    No casts on columns, operators, values or predicates are discarded.
+    """
+    result = copy.deepcopy(structure)
+    literal = r"'(?:[^']|'')*'::character varying"
+    pattern = re.compile(r"ARRAY\[(" + literal + r"(?:, " + literal + r")*)\]::text\[\]")
+    for table in result['tables'].values():
+        for check in table.get('checks', []):
+            check['sqltext'] = pattern.sub(
+                lambda match: 'ARRAY[' + re.sub(literal, lambda item: item[0] + '::text', match[1]) + ']',
+                check['sqltext'])
+    return result
 
 
 def differences(actual, expected):
@@ -10,8 +29,8 @@ def differences(actual, expected):
         issues.append('Alembic revision differs')
     if not actual['postgres'].startswith('18.'):
         issues.append('PostgreSQL18 required')
-    if actual['structure'] != expected['structure']:
-        a, e = actual['structure'], expected['structure']
+    a, e = [canonical_structure(item['structure']) for item in (actual, expected)]
+    if a != e:
         for section in sorted(set(a) | set(e)):
             if a.get(section) != e.get(section):
                 issues.append(f'Structure differs: {section}')

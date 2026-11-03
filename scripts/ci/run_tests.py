@@ -68,6 +68,8 @@ def main(name):
         ['git', 'rev-parse', 'HEAD'], text=True
     ).strip()
     suite = unittest.defaultTestLoader.loadTestsFromName(modules[name])
+    if name == 'unit':
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromName('tests.test_schema_comparison'))
     stream = sys.stderr if not sys.stdout.isatty() else sys.stdout
     runner = unittest.TextTestRunner(stream=stream, verbosity=2, resultclass=JUnitResult)
     try:
