@@ -11,7 +11,7 @@
 - Alembic 0006/0007 добавляют примечание участия и контакт организатора с сохранением исторических данных.
 - ЛР №7/8: unit/integration, PostgreSQL, SQL security, Ruff/Bandit/Gitleaks, TeamCity и защищённый ручной PROD Release с backup/restore и approval gates.
 - Область поставки по решению владельца — локальные VirtualBox VM. Публичный HTTPS/Caddy/ACME не входит в подтверждённые возможности этой поставки.
-- Рабочая PROD-БД мигрирована legacy → 0007 через TeamCity #609: backup/restore, schema/data checks и deployment PASS; 3/7/5/5/11 спортивных записей сохранены. Релизная версия образа 2.0.0 публикуется после независимого review этого изменения.
+- Рабочая PROD-БД мигрирована legacy → 0007 через TeamCity #609: backup/restore, schema/data checks и deployment PASS; 3/7/5/5/11 спортивных записей сохранены. Финальная версия образа 2.0.0 подтверждается отдельными build/digest/deployment receipts.
 
 ## 2.0.0-beta.1 — принято локально 16.10.2026
 
