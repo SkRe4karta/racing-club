@@ -230,9 +230,10 @@ class Alpha4MigrationTests(unittest.TestCase):
         names = [n for n in inspector.get_table_names() if n != 'alembic_version']
         quote = db.engine.dialect.identifier_preparer.quote
         columns = {n: ', '.join(quote(c['name']) for c in inspector.get_columns(n)) for n in names}
+        ordering = {n: ', '.join(quote(c) for c in inspector.get_pk_constraint(n)['constrained_columns']) for n in names}
         def snapshot():
             with db.engine.connect() as conn:
-                return {n: list(conn.exec_driver_sql(f'SELECT {columns[n]} FROM {quote(n)} ORDER BY id')) for n in names}
+                return {n: list(conn.exec_driver_sql(f'SELECT {columns[n]} FROM {quote(n)} ORDER BY {ordering[n]}')) for n in names}
         before = snapshot()
         self.cli('db', 'upgrade', '0005_predictions')
         self.assertEqual(snapshot(), before)

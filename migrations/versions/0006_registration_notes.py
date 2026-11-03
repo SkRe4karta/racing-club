@@ -12,10 +12,12 @@ def upgrade():
     if op.get_bind().dialect.name == 'postgresql':
         op.execute("SET LOCAL lock_timeout = '5s'")
         op.execute("SET LOCAL statement_timeout = '60s'")
-    with op.batch_alter_table('competitions') as batch:
-        batch.add_column(sa.Column('registration_notes', sa.String(2000), nullable=True))
-        batch.create_check_constraint('ck_competitions_registration_notes',
-                                      'registration_notes IS NULL OR length(registration_notes) <= 2000')
+    # Inline CHECK permits native SQLite ADD COLUMN without rebuilding a table
+    # referenced by historical result foreign keys. PostgreSQL gets the same CHECK.
+    op.add_column('competitions', sa.Column(
+        'registration_notes', sa.String(2000),
+        sa.CheckConstraint('registration_notes IS NULL OR length(registration_notes) <= 2000',
+                           name='ck_competitions_registration_notes'), nullable=True))
 
 
 def downgrade():
