@@ -8,6 +8,11 @@ import sqlalchemy as sa
 
 
 def snapshot(connection):
+    schemas = connection.exec_driver_sql(
+        "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' "
+        "AND nspname NOT IN ('information_schema', 'public')").scalars().all()
+    if schemas:
+        raise ValueError('Unreviewed custom schemas: ' + ', '.join(schemas))
     inspector = sa.inspect(connection)
     tables = {}
     for name in sorted(inspector.get_table_names(schema='public')):
@@ -27,6 +32,15 @@ def snapshot(connection):
                            for n in sorted(inspector.get_view_names(schema='public'))},
                  'sequences': sorted(inspector.get_sequence_names(schema='public')),
                  'extensions': connection.exec_driver_sql('SELECT extname, extversion FROM pg_extension ORDER BY extname').all()}
+    structure['functions'] = connection.exec_driver_sql(
+        "SELECT p.oid::regprocedure::text, pg_get_functiondef(p.oid) "
+        "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' ORDER BY 1").all()
+    structure['triggers'] = connection.exec_driver_sql(
+        "SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid), t.tgenabled "
+        "FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY 1,2").all()
     encoded = json.dumps(structure, sort_keys=True, default=list).encode()
     return structure, hashlib.sha256(encoded).hexdigest()
 
