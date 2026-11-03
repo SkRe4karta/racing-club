@@ -61,7 +61,7 @@ docker exec "$postgres" createdb -U postgres racing_lab8_schema
 docker run --rm --network "$network" -e SECRET_KEY="isolated-schema-export-only" \
   -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
   "$checks" flask --app run db upgrade
-docker exec "$postgres" pg_dump -U postgres --schema-only --no-owner --no-privileges racing_lab8_schema > artifacts/schema/schema.sql
+bash scripts/ci/export-schema.sh "$postgres" racing_lab8_schema artifacts/schema
 docker run --rm --network "$network" \
   -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
   "$checks" python scripts/ci/schema_snapshot.py --expected-db racing_lab8_schema > artifacts/schema/structure.json
