@@ -14,7 +14,14 @@ class SchemaComparisonTests(unittest.TestCase):
         restored = copy.deepcopy(source)
         check = restored['structure']['tables']['users']['checks'][0]
         check['sqltext'] = "status::text = ANY (ARRAY['active'::character varying::text, 'disabled'::character varying::text])"
+        source['structure']['tables']['users']['indexes'] = [{'dialect_options': {'postgresql_where':
+            "((status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying])::text[]))"}}]
+        restored['structure']['tables']['users']['indexes'] = [{'dialect_options': {'postgresql_where':
+            "((status)::text = ANY (ARRAY[('active'::character varying)::text, ('disabled'::character varying)::text]))"}}]
         self.assertEqual(differences(source, restored), [])
+        changed_index = copy.deepcopy(restored)
+        changed_index['structure']['tables']['users']['indexes'][0]['dialect_options']['postgresql_where'] = 'true'
+        self.assertTrue(differences(source, changed_index))
         for changed in ('active', 'disabled'):
             drift = copy.deepcopy(restored)
             drift['structure']['tables']['users']['checks'][0]['sqltext'] = check['sqltext'].replace(changed, 'unexpected')

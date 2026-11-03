@@ -14,12 +14,22 @@ def canonical_structure(structure):
     """
     result = copy.deepcopy(structure)
     literal = r"'(?:[^']|'')*'::character varying"
-    pattern = re.compile(r"ARRAY\[(" + literal + r"(?:, " + literal + r")*)\]::text\[\]")
+    patterns = [re.compile(r"ARRAY\[(" + literal + r"(?:, " + literal + r")*)\]::text\[\]"),
+                re.compile(r"\(ARRAY\[(" + literal + r"(?:, " + literal + r")*)\]\)::text\[\]")]
+
+    def expression(text):
+        for pattern in patterns:
+            text = pattern.sub(
+                lambda match: 'ARRAY[' + re.sub(literal, lambda item: item[0] + '::text', match[1]) + ']', text)
+        return re.sub(r"\((" + literal + r")\)::text", r"\1::text", text)
+
     for table in result['tables'].values():
         for check in table.get('checks', []):
-            check['sqltext'] = pattern.sub(
-                lambda match: 'ARRAY[' + re.sub(literal, lambda item: item[0] + '::text', match[1]) + ']',
-                check['sqltext'])
+            check['sqltext'] = expression(check['sqltext'])
+        for index in table.get('indexes', []):
+            options = index.get('dialect_options', {})
+            if 'postgresql_where' in options:
+                options['postgresql_where'] = expression(options['postgresql_where'])
     return result
 
 
