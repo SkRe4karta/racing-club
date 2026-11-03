@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 def snapshot(connection):
     schemas = connection.exec_driver_sql(
-        "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' "
+        "SELECT nspname FROM pg_namespace WHERE left(nspname, 3) <> 'pg_' "
         "AND nspname NOT IN ('information_schema', 'public')").scalars().all()
     if schemas:
         raise ValueError('Unreviewed custom schemas: ' + ', '.join(schemas))
