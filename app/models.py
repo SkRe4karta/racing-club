@@ -120,11 +120,13 @@ class Competition(db.Model):
     location = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='planned')  # 'planned' или 'completed'
 
+    registration_notes = db.Column(db.String(2000))
     registration_deadline = db.Column(db.DateTime(timezone=True))
     distance = db.Column(db.Integer)
     max_participants = db.Column(db.Integer)
     revision = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     __table_args__ = (
+        CheckConstraint('registration_notes IS NULL OR length(registration_notes) <= 2000', name='ck_competitions_registration_notes'),
         CheckConstraint('distance IS NULL OR distance BETWEEN 100 AND 100000', name='ck_competitions_distance'),
         CheckConstraint('max_participants IS NULL OR max_participants BETWEEN 1 AND 1000', name='ck_competitions_capacity'),
     )

@@ -312,8 +312,13 @@ def generate(size, seed, as_of, accounts_path):
         counts = row_counts()
         if set(counts) != set(db.metadata.tables) | {'alembic_version'}:
             raise DemoError('Схема неизвестна; сначала выполните миграции.')
-        if db.session.scalar(sa.text('SELECT version_num FROM alembic_version')) != '0005_predictions':
-            raise DemoError('Нужна текущая миграция 0005_predictions.')
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        config = Config()
+        config.set_main_option('script_location', str(REPOSITORY / 'migrations'))
+        head = ScriptDirectory.from_config(config).get_current_head()
+        if db.session.scalars(sa.text('SELECT version_num FROM alembic_version')).all() != [head]:
+            raise DemoError(f'Нужна текущая миграция {head}.')
         if any(value for name, value in counts.items() if name != 'alembic_version'):
             raise DemoError('Генерация разрешена только в пустой БД, включая служебные таблицы.')
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)

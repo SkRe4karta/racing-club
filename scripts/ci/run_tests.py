@@ -55,7 +55,8 @@ class JUnitResult(unittest.TextTestResult):
 
 def main(name):
     modules = {'unit': 'tests.lab7_unit_suite', 'integration': 'tests.lab7_integration_suite',
-               'postgres': 'tests.beta1_postgres_suite', 'ci-integration': 'tests.lab7_ci_suite'}
+               'postgres': 'tests.beta1_postgres_suite', 'ci-integration': 'tests.lab7_ci_suite',
+               'lab8-sqlite': 'tests.test_lab8', 'lab8-postgres': 'tests.test_lab8'}
     if name not in modules:
         raise SystemExit('Usage: python scripts/ci/run_tests.py {unit|integration|ci-integration|postgres}')
     output = Path(os.environ.get('LAB7_REPORT_DIR', 'artifacts/tests')) / f'{name}.xml'
@@ -67,6 +68,8 @@ def main(name):
         ['git', 'rev-parse', 'HEAD'], text=True
     ).strip()
     suite = unittest.defaultTestLoader.loadTestsFromName(modules[name])
+    if name == 'unit':
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromName('tests.test_schema_comparison'))
     stream = sys.stderr if not sys.stdout.isatty() else sys.stdout
     runner = unittest.TextTestRunner(stream=stream, verbosity=2, resultclass=JUnitResult)
     try:

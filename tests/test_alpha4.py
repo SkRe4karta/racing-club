@@ -226,9 +226,18 @@ class Alpha4MigrationTests(unittest.TestCase):
             conn.execute(sa.text("INSERT INTO jockeys(id,full_name,age,rating) VALUES (1,'Исторический жокей',25,0)"))
             conn.execute(sa.text("INSERT INTO competitions(id,title,event_date,event_time,location,status,revision) VALUES (1,'Архив','2025-01-01','12:00:00','Москва','completed',2)"))
             conn.execute(sa.text("INSERT INTO results(id,competition_id,horse_id,jockey_id,place,finish_time_seconds,is_disqualified,did_not_finish) VALUES (1,1,1,1,1,102.5,false,false)"))
-        names=[n for n in sa.inspect(db.engine).get_table_names() if n!='alembic_version']
+        inspector = sa.inspect(db.engine)
+        names = [n for n in inspector.get_table_names() if n != 'alembic_version']
+        quote = db.engine.dialect.identifier_preparer.quote
+        columns = {n: ', '.join(quote(c['name']) for c in inspector.get_columns(n)) for n in names}
+        ordering = {n: ', '.join(quote(c) for c in inspector.get_pk_constraint(n)['constrained_columns']) for n in names}
         def snapshot():
-            with db.engine.connect() as conn:return {n:list(conn.exec_driver_sql(f'SELECT * FROM {n}')) for n in names}
-        before=snapshot();self.cli('db','upgrade');self.assertEqual(snapshot(),before)
-        self.cli('db','upgrade');self.cli('db','check')
-        self.assertEqual(db.session.scalar(sa.text('SELECT version_num FROM alembic_version')),'0005_predictions')
+            with db.engine.connect() as conn:
+                return {n: list(conn.exec_driver_sql(f'SELECT {columns[n]} FROM {quote(n)} ORDER BY {ordering[n]}')) for n in names}
+        before = snapshot()
+        self.cli('db', 'upgrade', '0005_predictions')
+        self.assertEqual(snapshot(), before)
+        self.assertEqual(db.session.scalar(sa.text('SELECT version_num FROM alembic_version')), '0005_predictions')
+        self.cli('db', 'upgrade')
+        self.assertEqual(snapshot(), before)
+        self.cli('db', 'check')

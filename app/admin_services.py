@@ -96,7 +96,7 @@ def before_start(comp):
 
 def competition_values(data):
     from app.application_services import as_utc
-    allowed = {'title', 'location', 'event_date', 'event_time', 'distance', 'max_participants', 'registration_deadline'}
+    allowed = {'title', 'location', 'event_date', 'event_time', 'distance', 'max_participants', 'registration_deadline', 'registration_notes'}
     if set(data) - allowed:
         raise ValueError('Переданы недопустимые поля соревнования.')
     values = {}
@@ -104,6 +104,10 @@ def competition_values(data):
         values[name] = str(data.get(name, '')).strip()
         if not 1 <= len(values[name]) <= maximum:
             raise ValueError(f'Поле {name}: от 1 до {maximum} символов.')
+    notes = str(data.get('registration_notes') or '').strip()
+    if len(notes) > 2000:
+        raise ValueError('Условия участия: не более 2000 символов.')
+    values['registration_notes'] = notes or None
     try:
         values['event_date'] = datetime.strptime(str(data.get('event_date', '')), '%Y-%m-%d').date()
         values['event_time'] = datetime.strptime(str(data.get('event_time', '')), '%H:%M').time()
@@ -130,7 +134,7 @@ def competition_values(data):
 
 def competition_snapshot(comp):
     return {key: (getattr(comp, key).isoformat() if hasattr(getattr(comp, key), 'isoformat') else getattr(comp, key))
-            for key in ('title', 'location', 'event_date', 'event_time', 'distance', 'max_participants', 'registration_deadline')}
+            for key in ('title', 'location', 'event_date', 'event_time', 'distance', 'max_participants', 'registration_deadline', 'registration_notes')}
 
 
 @transaction
