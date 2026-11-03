@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../.."
 sha=$(git rev-parse HEAD)
 : "${EXPECTED_SHA:?Set to TeamCity build.vcs.number}"
 [[ "$sha" == "$EXPECTED_SHA" ]] || { echo 'Checkout differs from TeamCity revision' >&2; exit 1; }
-version=2.0.0-beta.1
+version=2.0.0
 suffix="${sha:0:12}-$$"
 network="racing-ci-$suffix"
 postgres="racing-ci-pg-$suffix"

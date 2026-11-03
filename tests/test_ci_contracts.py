@@ -61,7 +61,7 @@ class CIContracts(unittest.TestCase):
         visited = []
         def request(url, timeout):
             visited.append(url)
-            return Response(url, '{"status":"ok"}' if url.endswith('/health') else '2.0.0-beta.1',
+            return Response(url, '{"status":"ok"}' if url.endswith('/health') else '2.0.0',
                             'application/json' if url.endswith('/health') else 'text/html')
         with patch.object(smoke.urllib.request, 'urlopen', request), patch('sys.argv', ['smoke', 'http://stage:8081']), patch('sys.stdout', io.StringIO()):
             smoke.main()
@@ -73,7 +73,7 @@ class CIContracts(unittest.TestCase):
             def request(url, timeout):
                 health = url.endswith('/health')
                 return Response('http://stage:8081/auth/login' if defect == 'redirect' else url,
-                    json.dumps(dict(status='broken' if defect == 'health' else 'ok')) if health else ('old' if defect == 'version' else '2.0.0-beta.1'),
+                    json.dumps(dict(status='broken' if defect == 'health' else 'ok')) if health else ('old' if defect == 'version' else '2.0.0'),
                     'text/html' if defect == 'content-type' or not health else 'application/json')
             with self.subTest(defect=defect), patch.object(smoke.urllib.request, 'urlopen', request), patch('sys.argv', ['smoke', 'http://stage:8081']), patch('sys.stdout', io.StringIO()):
                 with self.assertRaises(SystemExit):
@@ -98,7 +98,7 @@ class DeploymentContracts(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='racing-cd-contract-')
         self.root = Path(self.temporary.name)
         (self.root / 'scripts/ci').mkdir(parents=True)
-        for name in ['deploy-stage.sh', 'schema-state.py']:
+        for name in ['deploy-stage.sh', 'schema-state.py', 'schema_snapshot.py', 'compare_schema.py', 'data-fingerprint.py']:
             shutil.copy(ROOT / 'scripts/ci' / name, self.root / 'scripts/ci' / name)
         (self.root / 'scripts/smoke.py').write_text('print("FAKE HTTP smoke for orchestration test only")\n')
         (self.root / 'compose.stage.yaml').write_text('# Fake Docker does not interpret this file\n')
@@ -111,6 +111,12 @@ class DeploymentContracts(unittest.TestCase):
             image='skre4karta/racing-club@sha256:' + 'b' * 64,
             backup_sha256=hashlib.sha256(b'FAKE backup; never restored').hexdigest())
         (self.root / 'receipt.json').write_text(json.dumps(receipt))
+        schema_dir = self.root / 'artifacts/deployment-schema'
+        schema_dir.mkdir(parents=True)
+        structure = dict(tables={}, views={}, sequences=[], extensions=[], functions=[], triggers=[])
+        for name, revision in [('baseline', '0004_admin_protocol'), ('target', '0005_predictions')]:
+            (schema_dir / (name + '.json')).write_text(json.dumps(dict(
+                revision=revision, postgres='18.6', structure=structure)))
         (self.root / 'docker').write_text('''#!/usr/bin/env python3
 import json, os, pathlib, sys
 root = pathlib.Path(os.environ['FAKE_ROOT'])
@@ -126,10 +132,15 @@ elif args[0] == 'compose':
     if 'run' in args and 'python' in args and '-c' in args:
         print('0005_predictions')
     elif 'run' in args and 'python' in args:
-        sys.stdin.read()
+        source = sys.stdin.read()
         state = json.loads((root / 'receipt.json').read_text())['source']
         if (root / 'migrated').exists():
             state.update(revision='0005_predictions', table_count=14)
+        if '--expected-db' in args:
+            state = dict(revision=state['revision'] or 'legacy', postgres='18.6',
+                         structure=dict(tables={}, views={}, sequences=[], extensions=[], functions=[], triggers=[]))
+        elif 'PRESERVATION_COLUMNS' in source:
+            state = dict(columns={'owners': ['id']}, tables=state['tables'])
         print(json.dumps(state, sort_keys=True))
     elif args[-2:] == ['db', 'upgrade']:
         if os.environ.get('FAKE_FAILURE') == 'migration': sys.exit(7)
@@ -168,7 +179,7 @@ elif args[0] == 'compose':
         (self.root / 'receipt.json').write_text(json.dumps(receipt))
         result = self.deploy()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('requires explicit adoption', result.stderr)
+        self.assertIn('Schema comparison: FAIL', result.stdout)
         self.assertNotIn('up -d', (self.root / 'calls.log').read_text())
         self.assertFalse((self.root / 'state/success.json').exists())
 
