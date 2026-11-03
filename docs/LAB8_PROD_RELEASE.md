@@ -70,6 +70,12 @@ TeamCity Production project доступен только ранее сущес�
 Release runner завершится fail-closed, пока отдельный PROD credential,
 fingerprint/known_hosts и root-owned wrapper не настроены.
 
+Проверка публичного host key по NAT и ранее закреплённому TeamCity pin подтвердила
+fingerprint `SHA256:Wd0M13oHDNqf4C2kbbtxAMlq3BJ+nINLR86jM336j14`. Новый шаг
+`check_ssh_host.py` в RACING-CI проверяет TCP/SSH reachability и fingerprint,
+создаёт ephemeral `known_hosts` с правами 600; он не аутентифицируется и не
+меняет PROD. Успешный результат ожидается в следующем Build ID.
+
 ## Проверка этой версии
 
 - `python -m unittest tests.test_prod_release -v` — 15/15 PASS.

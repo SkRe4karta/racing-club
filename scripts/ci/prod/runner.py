@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 
 from .gates import Refused, provenance, require
 
-KNOWN_HOSTS = Path('/data/teamcity_agent/conf/racing-prod-known-hosts')
+KNOWN_HOSTS = Path(os.environ.get('PROD_KNOWN_HOSTS_FILE', 'artifacts/prod-release/known_hosts'))
 PROD_HOST = '10.20.0.13'
 PROD_USER = 'zelyonka'
 

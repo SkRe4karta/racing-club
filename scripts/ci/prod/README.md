@@ -4,8 +4,12 @@ The new code is preparation, not authorization to migrate/deploy PROD.
 `runner --mode check` fetches actual DEV/STAGE metadata and digest from TeamCity,
 checks the exact snapshot dependency, then returns an explicit read-only receipt.
 It does not open SSH, acquire an identity, stop web or access the production DB.
+`check_ssh_host.py` verifies RACING-CI can reach SSH port 22 and that the ED25519
+host key matches the previously pinned fingerprint, then writes a private
+ephemeral known_hosts file. It does not authenticate or change PROD.
+
 `--mode release` additionally requires the isolated PROD key in the TeamCity SSH
-Agent and console-verified known_hosts on RACING-CI. The root-owned wrapper on
+Agent and the verified ephemeral known_hosts on RACING-CI. The root-owned wrapper on
 PROD validates the owner approval and all target settings; the CI build cannot
 read or replace those root-owned files.
 
