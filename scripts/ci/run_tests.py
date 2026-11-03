@@ -70,6 +70,8 @@ def main(name):
     suite = unittest.defaultTestLoader.loadTestsFromName(modules[name])
     if name == 'unit':
         suite.addTests(unittest.defaultTestLoader.loadTestsFromName('tests.test_schema_comparison'))
+    if name in {'lab8-sqlite', 'lab8-postgres'}:
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromName('tests.test_lab8_contact'))
     stream = sys.stderr if not sys.stdout.isatty() else sys.stdout
     runner = unittest.TextTestRunner(stream=stream, verbosity=2, resultclass=JUnitResult)
     try:
