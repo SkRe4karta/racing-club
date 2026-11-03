@@ -99,8 +99,10 @@ class MigrationTests(unittest.TestCase):
 
     def test_adopt_refuses_managed_database(self):
         self.cli('db', 'upgrade')
+        before = db.session.scalar(sa.text('SELECT version_num FROM alembic_version'))
+        self.assertTrue(before)
         self.assertNotEqual(self.runner.invoke(args=['adopt-legacy']).exit_code, 0)
-        self.assertEqual(db.session.scalar(sa.text('SELECT version_num FROM alembic_version')), '0005_predictions')
+        self.assertEqual(db.session.scalar(sa.text('SELECT version_num FROM alembic_version')), before)
 
     def test_upgrade_idempotent_downgrade_refused_without_data_loss(self):
         self.legacy()
