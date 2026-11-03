@@ -1,0 +1,1969 @@
+{
+  "counts": {
+    "alembic_version": 1,
+    "application_events": 0,
+    "applications": 0,
+    "audit_logs": 0,
+    "auth_throttles": 0,
+    "competitions": 0,
+    "horses": 0,
+    "jockeys": 0,
+    "notifications": 0,
+    "owners": 0,
+    "prediction_choices": 0,
+    "predictions": 0,
+    "results": 0,
+    "users": 0
+  },
+  "database": "racing_lab8_schema",
+  "fingerprint": "3fe4b3f00e1799f2c7543b192fcec778eb2cb48f6287bfd2e3725b056b5ca5da",
+  "postgres": "18.6",
+  "revision": "0007_organizer_contact",
+  "structure": {
+    "extensions": [
+      [
+        "plpgsql",
+        "1.0"
+      ]
+    ],
+    "functions": [
+      [
+        "racing_audit_immutable()",
+        "CREATE OR REPLACE FUNCTION public.racing_audit_immutable()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\n            BEGIN RAISE EXCEPTION 'audit history is append-only'; END $function$\n"
+      ]
+    ],
+    "sequences": [
+      "application_events_id_seq",
+      "applications_id_seq",
+      "audit_logs_id_seq",
+      "competitions_id_seq",
+      "horses_id_seq",
+      "jockeys_id_seq",
+      "notifications_id_seq",
+      "owners_id_seq",
+      "prediction_choices_id_seq",
+      "predictions_id_seq",
+      "results_id_seq",
+      "users_id_seq"
+    ],
+    "tables": {
+      "alembic_version": {
+        "checks": [],
+        "columns": [
+          {
+            "default": null,
+            "identity": null,
+            "name": "version_num",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "version_num"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "alembic_version_pkc"
+        },
+        "unique": []
+      },
+      "application_events": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_application_events_action",
+            "sqltext": "action::text = ANY (ARRAY['created'::character varying, 'confirmed'::character varying, 'rejected'::character varying, 'cancelled'::character varying]::text[])"
+          },
+          {
+            "comment": null,
+            "name": "ck_application_events_status",
+            "sqltext": "status::text = ANY (ARRAY['awaiting_owner'::character varying, 'awaiting_jockey'::character varying, 'pending_admin'::character varying, 'admin_confirmed'::character varying, 'rejected'::character varying, 'cancelled'::character varying]::text[])"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".application_events_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "application_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "actor_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "action",
+            "nullable": false,
+            "type": "VARCHAR(24)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(24)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "created_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "actor_id"
+            ],
+            "name": "application_events_actor_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "application_id"
+            ],
+            "name": "application_events_application_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "applications"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "application_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_application_events_application_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "application_events_pkey"
+        },
+        "unique": []
+      },
+      "applications": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_applications_consents",
+            "sqltext": "status::text = 'awaiting_owner'::text AND owner_confirmed_at IS NULL AND jockey_confirmed_at IS NOT NULL AND initiator_side::text = 'jockey'::text OR status::text = 'awaiting_jockey'::text AND owner_confirmed_at IS NOT NULL AND jockey_confirmed_at IS NULL AND initiator_side::text = 'owner'::text OR (status::text = ANY (ARRAY['pending_admin'::character varying, 'admin_confirmed'::character varying]::text[])) AND owner_confirmed_at IS NOT NULL AND jockey_confirmed_at IS NOT NULL OR (status::text = ANY (ARRAY['rejected'::character varying, 'cancelled'::character varying]::text[]))"
+          },
+          {
+            "comment": null,
+            "name": "ck_applications_distinct_parties",
+            "sqltext": "owner_user_id <> jockey_user_id"
+          },
+          {
+            "comment": null,
+            "name": "ck_applications_side",
+            "sqltext": "initiator_side::text = ANY (ARRAY['owner'::character varying, 'jockey'::character varying]::text[])"
+          },
+          {
+            "comment": null,
+            "name": "ck_applications_status",
+            "sqltext": "status::text = ANY (ARRAY['awaiting_owner'::character varying, 'awaiting_jockey'::character varying, 'pending_admin'::character varying, 'admin_confirmed'::character varying, 'rejected'::character varying, 'cancelled'::character varying]::text[])"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".applications_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "competition_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "horse_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "jockey_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "owner_user_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "jockey_user_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "initiator_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "initiator_side",
+            "nullable": false,
+            "type": "VARCHAR(16)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(24)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "owner_confirmed_at",
+            "nullable": true,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "jockey_confirmed_at",
+            "nullable": true,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "created_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "updated_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "competition_id"
+            ],
+            "name": "applications_competition_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "competitions"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "horse_id"
+            ],
+            "name": "applications_horse_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "horses"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "initiator_id"
+            ],
+            "name": "applications_initiator_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "jockey_id"
+            ],
+            "name": "applications_jockey_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "jockeys"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "jockey_user_id"
+            ],
+            "name": "applications_jockey_user_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "owner_user_id"
+            ],
+            "name": "applications_owner_user_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "jockey_user_id",
+              "created_at"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_applications_jockey_created",
+            "unique": false
+          },
+          {
+            "column_names": [
+              "owner_user_id",
+              "created_at"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_applications_owner_created",
+            "unique": false
+          },
+          {
+            "column_names": [
+              "competition_id",
+              "horse_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_where": "((status)::text = ANY ((ARRAY['awaiting_owner'::character varying, 'awaiting_jockey'::character varying, 'pending_admin'::character varying, 'admin_confirmed'::character varying])::text[]))"
+            },
+            "include_columns": [],
+            "name": "uq_applications_active_horse",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "competition_id",
+              "jockey_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_where": "((status)::text = ANY ((ARRAY['awaiting_owner'::character varying, 'awaiting_jockey'::character varying, 'pending_admin'::character varying, 'admin_confirmed'::character varying])::text[]))"
+            },
+            "include_columns": [],
+            "name": "uq_applications_active_jockey",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "applications_pkey"
+        },
+        "unique": []
+      },
+      "audit_logs": {
+        "checks": [],
+        "columns": [
+          {
+            "default": "nextval('\"public\".audit_logs_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "actor_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "action",
+            "nullable": false,
+            "type": "VARCHAR(48)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "object_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "object_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "created_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "reason",
+            "nullable": true,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "old_values",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "new_values",
+            "nullable": true,
+            "type": "JSON"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "actor_id"
+            ],
+            "name": "audit_logs_actor_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "actor_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_audit_logs_actor_id",
+            "unique": false
+          },
+          {
+            "column_names": [
+              "object_type",
+              "object_id",
+              "id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_audit_logs_object",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "audit_logs_pkey"
+        },
+        "unique": []
+      },
+      "auth_throttles": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_auth_throttles_attempts",
+            "sqltext": "attempts > 0"
+          }
+        ],
+        "columns": [
+          {
+            "default": null,
+            "identity": null,
+            "name": "key",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "window_started",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "attempts",
+            "nullable": false,
+            "type": "INTEGER"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "key"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "auth_throttles_pkey"
+        },
+        "unique": []
+      },
+      "competitions": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_competitions_capacity",
+            "sqltext": "max_participants IS NULL OR max_participants >= 1 AND max_participants <= 1000"
+          },
+          {
+            "comment": null,
+            "name": "ck_competitions_distance",
+            "sqltext": "distance IS NULL OR distance >= 100 AND distance <= 100000"
+          },
+          {
+            "comment": null,
+            "name": "ck_competitions_organizer_email",
+            "sqltext": "organizer_email IS NULL OR length(organizer_email::text) >= 3 AND length(organizer_email::text) <= 254 AND organizer_email::text = lower(organizer_email::text) AND organizer_email::text ~~ '%@%'::text"
+          },
+          {
+            "comment": null,
+            "name": "ck_competitions_registration_notes",
+            "sqltext": "registration_notes IS NULL OR length(registration_notes::text) <= 2000"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".competitions_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "title",
+            "nullable": false,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "event_date",
+            "nullable": false,
+            "type": "DATE"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "event_time",
+            "nullable": false,
+            "type": "TIME"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "location",
+            "nullable": false,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(20)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "registration_deadline",
+            "nullable": true,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "distance",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "max_participants",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": "0",
+            "identity": null,
+            "name": "revision",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "registration_notes",
+            "nullable": true,
+            "type": "VARCHAR(2000)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "organizer_email",
+            "nullable": true,
+            "type": "VARCHAR(254)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "competitions_pkey"
+        },
+        "unique": []
+      },
+      "horses": {
+        "checks": [],
+        "columns": [
+          {
+            "default": "nextval('\"public\".horses_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "nickname",
+            "nullable": false,
+            "type": "VARCHAR(100)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "gender",
+            "nullable": false,
+            "type": "VARCHAR(20)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "age",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "owner_id",
+            "nullable": false,
+            "type": "INTEGER"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "owner_id"
+            ],
+            "name": "horses_owner_id_fkey",
+            "options": {},
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "owners"
+          }
+        ],
+        "indexes": [],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "horses_pkey"
+        },
+        "unique": []
+      },
+      "jockeys": {
+        "checks": [],
+        "columns": [
+          {
+            "default": "nextval('\"public\".jockeys_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "full_name",
+            "nullable": false,
+            "type": "VARCHAR(150)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "address",
+            "nullable": true,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "age",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "rating",
+            "nullable": false,
+            "type": "DOUBLE PRECISION"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "jockeys_pkey"
+        },
+        "unique": []
+      },
+      "notifications": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_notifications_source",
+            "sqltext": "event_id IS NOT NULL AND application_id IS NOT NULL AND audit_id IS NULL OR event_id IS NULL AND audit_id IS NOT NULL"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".notifications_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "application_id",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "event_id",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "message",
+            "nullable": false,
+            "type": "VARCHAR(300)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "created_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "read_at",
+            "nullable": true,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "audit_id",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "competition_id",
+            "nullable": true,
+            "type": "INTEGER"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "audit_id"
+            ],
+            "name": "fk_notifications_audit",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "audit_logs"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "competition_id"
+            ],
+            "name": "fk_notifications_competition",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "competitions"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "application_id"
+            ],
+            "name": "notifications_application_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "applications"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "event_id"
+            ],
+            "name": "notifications_event_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "application_events"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "user_id"
+            ],
+            "name": "notifications_user_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "user_id",
+              "read_at",
+              "id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_notifications_user_read",
+            "unique": false
+          },
+          {
+            "column_names": [
+              "user_id",
+              "audit_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_notifications_recipient_audit",
+            "include_columns": [],
+            "name": "uq_notifications_recipient_audit",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "user_id",
+              "event_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_notifications_recipient_event",
+            "include_columns": [],
+            "name": "uq_notifications_recipient_event",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "notifications_pkey"
+        },
+        "unique": [
+          {
+            "column_names": [
+              "user_id",
+              "audit_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_notifications_recipient_audit"
+          },
+          {
+            "column_names": [
+              "user_id",
+              "event_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_notifications_recipient_event"
+          }
+        ]
+      },
+      "owners": {
+        "checks": [],
+        "columns": [
+          {
+            "default": "nextval('\"public\".owners_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "full_name",
+            "nullable": false,
+            "type": "VARCHAR(150)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "address",
+            "nullable": true,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "phone",
+            "nullable": true,
+            "type": "VARCHAR(50)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "owners_pkey"
+        },
+        "unique": []
+      },
+      "prediction_choices": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_prediction_choices_position",
+            "sqltext": "\"position\" >= 1 AND \"position\" <= 3"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".prediction_choices_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "prediction_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "horse_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "position",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "position_correct",
+            "nullable": true,
+            "type": "BOOLEAN"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "horse_id"
+            ],
+            "name": "prediction_choices_horse_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "horses"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "prediction_id"
+            ],
+            "name": "prediction_choices_prediction_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "predictions"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "prediction_id",
+              "horse_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_prediction_choices_horse",
+            "include_columns": [],
+            "name": "uq_prediction_choices_horse",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "prediction_id",
+              "position"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_prediction_choices_position",
+            "include_columns": [],
+            "name": "uq_prediction_choices_position",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "prediction_choices_pkey"
+        },
+        "unique": [
+          {
+            "column_names": [
+              "prediction_id",
+              "horse_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_prediction_choices_horse"
+          },
+          {
+            "column_names": [
+              "prediction_id",
+              "position"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_prediction_choices_position"
+          }
+        ]
+      },
+      "predictions": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_predictions_hits",
+            "sqltext": "podium_hits IS NULL OR podium_hits >= 0 AND podium_hits <= 3"
+          },
+          {
+            "comment": null,
+            "name": "ck_predictions_mode",
+            "sqltext": "mode::text = ANY (ARRAY['winner'::character varying, 'trio'::character varying]::text[])"
+          },
+          {
+            "comment": null,
+            "name": "ck_predictions_outcome",
+            "sqltext": "outcome::text = ANY (ARRAY['pending'::character varying, 'evaluated'::character varying, 'void'::character varying]::text[])"
+          },
+          {
+            "comment": null,
+            "name": "ck_predictions_revision",
+            "sqltext": "revision > 0"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".predictions_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "competition_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "mode",
+            "nullable": false,
+            "type": "VARCHAR(12)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "revision",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "created_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "updated_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "evaluated_at",
+            "nullable": true,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "protocol_revision",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "outcome",
+            "nullable": false,
+            "type": "VARCHAR(12)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "winner_correct",
+            "nullable": true,
+            "type": "BOOLEAN"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "podium_hits",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "exact_trio",
+            "nullable": true,
+            "type": "BOOLEAN"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "competition_id"
+            ],
+            "name": "predictions_competition_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "competitions"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "user_id"
+            ],
+            "name": "predictions_user_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "competition_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_predictions_competition",
+            "unique": false
+          },
+          {
+            "column_names": [
+              "user_id",
+              "created_at"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_predictions_user_created",
+            "unique": false
+          },
+          {
+            "column_names": [
+              "user_id",
+              "competition_id",
+              "mode"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_predictions_user_race_mode",
+            "include_columns": [],
+            "name": "uq_predictions_user_race_mode",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "predictions_pkey"
+        },
+        "unique": [
+          {
+            "column_names": [
+              "user_id",
+              "competition_id",
+              "mode"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_predictions_user_race_mode"
+          }
+        ]
+      },
+      "results": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_results_outcome",
+            "sqltext": "NOT (did_not_finish AND is_disqualified)"
+          },
+          {
+            "comment": null,
+            "name": "ck_results_start_number",
+            "sqltext": "start_number IS NULL OR start_number > 0"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".results_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "competition_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "horse_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "jockey_id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "finish_time_seconds",
+            "nullable": true,
+            "type": "DOUBLE PRECISION"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "is_disqualified",
+            "nullable": false,
+            "type": "BOOLEAN"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "place",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "application_id",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "start_number",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": "false",
+            "identity": null,
+            "name": "did_not_finish",
+            "nullable": false,
+            "type": "BOOLEAN"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "application_id"
+            ],
+            "name": "fk_results_application",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "applications"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "competition_id"
+            ],
+            "name": "results_competition_id_fkey",
+            "options": {},
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "competitions"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "horse_id"
+            ],
+            "name": "results_horse_id_fkey",
+            "options": {},
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "horses"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "jockey_id"
+            ],
+            "name": "results_jockey_id_fkey",
+            "options": {},
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "jockeys"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "competition_id",
+              "horse_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_competition_horse",
+            "include_columns": [],
+            "name": "uq_competition_horse",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "competition_id",
+              "jockey_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_competition_jockey",
+            "include_columns": [],
+            "name": "uq_competition_jockey",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "application_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_results_application",
+            "include_columns": [],
+            "name": "uq_results_application",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "competition_id",
+              "start_number"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "uq_results_start_number",
+            "include_columns": [],
+            "name": "uq_results_start_number",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "results_pkey"
+        },
+        "unique": [
+          {
+            "column_names": [
+              "competition_id",
+              "horse_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_competition_horse"
+          },
+          {
+            "column_names": [
+              "competition_id",
+              "jockey_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_competition_jockey"
+          },
+          {
+            "column_names": [
+              "application_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_results_application"
+          },
+          {
+            "column_names": [
+              "competition_id",
+              "start_number"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "uq_results_start_number"
+          }
+        ]
+      },
+      "users": {
+        "checks": [
+          {
+            "comment": null,
+            "name": "ck_users_email_normalized",
+            "sqltext": "email::text = lower(email::text)"
+          },
+          {
+            "comment": null,
+            "name": "ck_users_profile_role",
+            "sqltext": "role::text = 'OWNER'::text AND owner_id IS NOT NULL AND jockey_id IS NULL OR role::text = 'JOCKEY'::text AND jockey_id IS NOT NULL AND owner_id IS NULL OR (role::text = ANY (ARRAY['ROOT'::character varying, 'ADMIN'::character varying, 'VIEWER'::character varying]::text[])) AND owner_id IS NULL AND jockey_id IS NULL"
+          },
+          {
+            "comment": null,
+            "name": "ck_users_role",
+            "sqltext": "role::text = ANY (ARRAY['ROOT'::character varying, 'ADMIN'::character varying, 'OWNER'::character varying, 'JOCKEY'::character varying, 'VIEWER'::character varying]::text[])"
+          },
+          {
+            "comment": null,
+            "name": "ck_users_status",
+            "sqltext": "status::text = ANY (ARRAY['active'::character varying, 'disabled'::character varying]::text[])"
+          }
+        ],
+        "columns": [
+          {
+            "default": "nextval('\"public\".users_id_seq'::regclass)",
+            "identity": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "email",
+            "nullable": false,
+            "type": "VARCHAR(254)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "password_hash",
+            "nullable": false,
+            "type": "VARCHAR(512)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "role",
+            "nullable": false,
+            "type": "VARCHAR(16)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(16)"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "registered_at",
+            "nullable": false,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "last_login_at",
+            "nullable": true,
+            "type": "TIMESTAMP"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "owner_id",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "default": null,
+            "identity": null,
+            "name": "jockey_id",
+            "nullable": true,
+            "type": "INTEGER"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "comment": null,
+            "constrained_columns": [
+              "jockey_id"
+            ],
+            "name": "users_jockey_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "jockeys"
+          },
+          {
+            "comment": null,
+            "constrained_columns": [
+              "owner_id"
+            ],
+            "name": "users_owner_id_fkey",
+            "options": {
+              "ondelete": "RESTRICT"
+            },
+            "referred_columns": [
+              "id"
+            ],
+            "referred_schema": "public",
+            "referred_table": "owners"
+          }
+        ],
+        "indexes": [
+          {
+            "column_names": [
+              "email"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "include_columns": [],
+            "name": "ix_users_email",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "role"
+            ],
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_where": "((role)::text = 'ROOT'::text)"
+            },
+            "include_columns": [],
+            "name": "uq_users_initial_root",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "jockey_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "users_jockey_id_key",
+            "include_columns": [],
+            "name": "users_jockey_id_key",
+            "unique": true
+          },
+          {
+            "column_names": [
+              "owner_id"
+            ],
+            "dialect_options": {
+              "postgresql_include": []
+            },
+            "duplicates_constraint": "users_owner_id_key",
+            "include_columns": [],
+            "name": "users_owner_id_key",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "comment": null,
+          "constrained_columns": [
+            "id"
+          ],
+          "dialect_options": {
+            "postgresql_include": []
+          },
+          "name": "users_pkey"
+        },
+        "unique": [
+          {
+            "column_names": [
+              "jockey_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "users_jockey_id_key"
+          },
+          {
+            "column_names": [
+              "owner_id"
+            ],
+            "comment": null,
+            "dialect_options": {
+              "postgresql_include": [],
+              "postgresql_nulls_not_distinct": false
+            },
+            "name": "users_owner_id_key"
+          }
+        ]
+      }
+    },
+    "triggers": [
+      [
+        "audit_logs",
+        "audit_logs_immutable",
+        "CREATE TRIGGER audit_logs_immutable BEFORE DELETE OR UPDATE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION racing_audit_immutable()",
+        "O"
+      ]
+    ],
+    "views": {}
+  }
+}

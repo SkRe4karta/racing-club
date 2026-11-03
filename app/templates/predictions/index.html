@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Спортивные прогнозы — Racing Club{% endblock %}
+{% block content %}
+<div class="editorial-heading"><span class="eyebrow">ВАШЕ ЗНАНИЕ СПОРТА</span><h1>Чувствуйте гонку.<br><em>Проверяйте прогноз.</em></h1><p>Выберите победителя или первую тройку. Бесплатно, без ставок и призов. Только спорт и ваша точность.</p></div>
+<div class="segmented-control" aria-label="Раздел прогнозов"><a {% if request.args.get('status') != 'completed' %}aria-current="page"{% endif %} href="{{ url_for('predictions.index') }}">Будущие заезды</a><a {% if request.args.get('status') == 'completed' %}aria-current="page"{% endif %} href="{{ url_for('predictions.index', status='completed') }}">Результаты прогнозов</a>{% if current_user.is_authenticated %}<a href="{{ url_for('predictions.history') }}">Моя история ↗</a>{% endif %}</div>
+<div class="event-grid">{% for comp in pagination.items %}<article class="event-card"><span class="eyebrow">{{ 'ПРИЁМ ОТКРЫТ' if predictions_open(comp) else 'ПРИЁМ ЗАКРЫТ' }}</span><h2><a href="{{ url_for('predictions.detail', comp_id=comp.id) }}">{{ comp.title }} ↗</a></h2><p>{{ comp.formatted_date }} / {{ comp.formatted_time }} · {{ comp.location }}</p><div class="card-meta"><span>{{ comp.results|length }} участников</span><span>{{ (comp.distance|string + ' м') if comp.distance else 'Дистанция не указана' }}</span></div><a class="btn btn-primary" href="{{ url_for('predictions.detail', comp_id=comp.id) }}">{{ 'Сделать прогноз' if predictions_open(comp) else 'Посмотреть' }} ↗</a></article>{% else %}<div class="empty-state">Заездов пока нет. Прогнозы появятся вместе с официальными стартами.</div>{% endfor %}</div>
+{% include 'cabinet/_pagination.html' %}
+{% endblock %}

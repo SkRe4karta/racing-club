@@ -53,4 +53,7 @@
     </div>
   </div>
   {% include 'components/performance.html' %}
+  {% if can('manage_jockey', jockey) %}
+  <p class="my-3"><a class="btn btn-outline-secondary" href="{{ url_for('cabinet.profile_edit', side='jockey', profile_id=jockey.id) }}">Редактировать профиль</a></p>
+  {% endif %}
 {% endblock %}

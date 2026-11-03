@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Исторические профили — Racing Club{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>Исторические профили</h1><p>Спортивная история сохранена. Эти профили ещё не связаны с аккаунтами.</p></div></div>
+<nav class="segmented-control" aria-label="Вид профиля">
+  <a href="{{ url_for('root.historical_profiles') }}" {% if side == 'owner' %}aria-current="page"{% endif %}>Владельцы</a>
+  <a href="{{ url_for('root.historical_profiles', side='jockey') }}" {% if side == 'jockey' %}aria-current="page"{% endif %}>Жокеи</a>
+</nav>
+<div class="panel structured-list">
+{% for profile in pagination.items %}<div class="list-row"><span class="count-badge">{{ profile.id }}</span><span class="list-copy"><strong><a href="{{ url_for('owners.detail_owner', owner_id=profile.id) if side == 'owner' else url_for('jockeys.detail_jockey', jockey_id=profile.id) }}">{{ profile.full_name }}</a></strong><small>{{ 'Владелец' if side == 'owner' else 'Жокей' }} · без аккаунта</small></span></div>{% else %}<div class="empty-state">Несвязанных профилей этого типа нет.</div>{% endfor %}
+</div>
+{% include 'cabinet/_pagination.html' %}
+<div class="alert alert-info">Для доверенной привязки откройте нужный аккаунт VIEWER в <a href="{{ url_for('root.users',role='VIEWER',status='active') }}">списке пользователей</a>, выберите «Привязать профиль» и подтвердите внешнюю проверку принадлежности. Эта процедура не подменяет личное согласие на соревнование.</div>
+{% endblock %}

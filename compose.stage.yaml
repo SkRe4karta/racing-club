@@ -1,0 +1,20 @@
+# Web-only Beta deployment. The historical project's database is never recreated.
+services:
+  web:
+    image: "${RACING_IMAGE:?Set an immutable repository@sha256 digest}"
+    ports:
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8081}:8080"
+    environment:
+      DATABASE_URL: "${STAGE_DATABASE_URL:?Set the separately rehearsed STAGE database URL}"
+      SECRET_KEY: "${SECRET_KEY:?Set SECRET_KEY}"
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:?Explicitly select false for lab HTTP or true for HTTPS}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+networks:
+  default:
+    external: true
+    name: racing-club-stage_default

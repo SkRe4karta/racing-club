@@ -1,0 +1,327 @@
+{
+  "RacingClub_FeatureVerify": {
+    "steps": {
+      "count": 6,
+      "step": [
+        {
+          "id": "RUNNER_2",
+          "name": "Prepare pinned static analyzers",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/prepare-static-analysis.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "default"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_3",
+          "name": "Quality — Ruff BLOCKER policy",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/check-quality.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_4",
+          "name": "Security — Bandit HIGH/HIGH policy",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/check-security.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_5",
+          "name": "Secrets — Gitleaks history and working tree",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/check-secrets.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_6",
+          "name": "Static analysis HTML and final gate",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/static-analysis.sh summary"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_7",
+          "name": "Verify Racing Club",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/verify.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "default"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "artifactRules": "artifacts/*.txt\nartifacts/static-analysis/** => static-analysis\nartifacts/tests/*.xml => tests"
+  },
+  "RacingClub_DevVerifyPublish": {
+    "steps": {
+      "count": 7,
+      "step": [
+        {
+          "id": "RUNNER_8",
+          "name": "Prepare pinned static analyzers",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/prepare-static-analysis.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "default"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_9",
+          "name": "Quality — Ruff BLOCKER policy",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/check-quality.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_10",
+          "name": "Security — Bandit HIGH/HIGH policy",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/check-security.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_11",
+          "name": "Secrets — Gitleaks history and working tree",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/check-secrets.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_12",
+          "name": "Static analysis HTML and final gate",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/static-analysis.sh summary"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "execute_always"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_13",
+          "name": "Verify Racing Club",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/verify.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "default"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        },
+        {
+          "id": "RUNNER_14",
+          "name": "Publish Docker Image",
+          "type": "simpleRunner",
+          "properties": {
+            "count": 3,
+            "property": [
+              {
+                "name": "script.content",
+                "value": "#!/usr/bin/env bash\nset -euo pipefail\nbash scripts/ci/publish.sh"
+              },
+              {
+                "name": "teamcity.step.mode",
+                "value": "default"
+              },
+              {
+                "name": "use.custom.script",
+                "value": "true"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "artifactRules": "artifacts/*.txt\nartifacts/published-image.json\nartifacts/stage-deploy.tar.gz\nartifacts/static-analysis/** => static-analysis\nartifacts/tests/*.xml => tests"
+  },
+  "reportTab": {
+    "id": "PROJECT_EXT_4",
+    "type": "ReportTab",
+    "href": "/app/rest/projects/id:RacingClub/projectFeatures/id:PROJECT_EXT_4",
+    "properties": {
+      "count": 3,
+      "property": [
+        {
+          "name": "startPage",
+          "value": "static-analysis/summary.html"
+        },
+        {
+          "name": "title",
+          "value": "Static Analysis"
+        },
+        {
+          "name": "type",
+          "value": "BuildReportTab"
+        }
+      ],
+      "href": "/app/rest/projects/id:RacingClub/projectFeatures/id:PROJECT_EXT_4/properties"
+    }
+  }
+}

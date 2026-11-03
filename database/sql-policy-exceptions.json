@@ -1,0 +1,5 @@
+{
+  "reviewed_function_ast_sha256": {
+    "4014d0f2e4f4d080a5cc52d92460f9affc04ee29a9da8606718df66a8bcdc83e": "public.racing_audit_immutable: unchanged 0004 append-only trigger; body always raises"
+  }
+}

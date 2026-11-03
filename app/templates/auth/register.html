@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Регистрация — Racing Club{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>Регистрация</h1><p>Выберите тип аккаунта. Владельцу и жокею будет создан новый профиль.</p></div></div>
+<form method="POST" class="card p-4 auth-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3"><label for="role">Тип аккаунта</label><select class="form-select" id="role" name="role" required>{% for role,label in [('VIEWER','Зритель'),('OWNER','Владелец'),('JOCKEY','Жокей')] %}<option value="{{ role }}" {% if request.form.get('role') == role %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="mb-3"><label for="email">Email</label><input class="form-control" id="email" name="email" type="email" maxlength="254" autocomplete="username" value="{{ request.form.get('email', '') }}" required><small>Используйте латинские символы.</small></div>
+  <div class="mb-3"><label for="full_name">ФИО владельца или жокея</label><input class="form-control" id="full_name" name="full_name" maxlength="150" autocomplete="name" value="{{ request.form.get('full_name', '') }}"><small>Обязательно для владельца и жокея.</small></div>
+  <div class="mb-3"><label for="age">Возраст жокея</label><input class="form-control" id="age" name="age" type="number" min="1" max="100" value="{{ request.form.get('age', '') }}"><small>Обязательно только для жокея.</small></div>
+  <div class="mb-3"><label for="password">Пароль</label><input class="form-control" id="password" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small>От 12 до 128 символов.</small></div>
+  <div class="mb-3"><label for="password_confirm">Повтор пароля</label><input class="form-control" id="password_confirm" name="password_confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div>
+  <button class="btn btn-primary" type="submit">Зарегистрироваться</button>
+  <p><a href="{{ url_for('auth.login') }}">Уже есть аккаунт</a></p>
+</form>
+{% endblock %}

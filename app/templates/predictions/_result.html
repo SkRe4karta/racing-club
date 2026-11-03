@@ -1,0 +1,26 @@
+<div class="prediction-result">
+  {% if prediction.outcome == 'pending' %}
+    <p class="result-summary"><span class="status-symbol" aria-hidden="true">◷</span> Ожидает официального протокола</p>
+  {% elif prediction.outcome == 'void' %}
+    <p class="result-summary">— Прогноз не оценивается</p><p class="text-muted">Один из выбранных участников выбыл из списка. Прогноз не оценивается и не снижает точность.</p>
+  {% else %}
+    <p class="eyebrow">Результат · ревизия протокола {{ prediction.protocol_revision }}</p>
+    {% if prediction.mode == 'winner' %}
+      <p class="result-summary {{ 'is-correct' if prediction.winner_correct == true else 'is-incorrect' if prediction.winner_correct == false else '' }}">{{ '✓ Победитель предсказан верно' if prediction.winner_correct == true else '× Победитель не совпал' if prediction.winner_correct == false else '— Победитель не определён' }}</p>
+    {% else %}
+      <p class="result-summary {{ 'is-correct' if prediction.exact_trio == true else '' }}">Верно названных призёров: {{ prediction.podium_hits }} из 3</p>
+      <p>{{ '✓ Точная тройка!' if prediction.exact_trio == true else '× Точный порядок не совпал' if prediction.exact_trio == false else '— Точная тройка не определена: равные места или неполный подиум.' }}</p>
+    {% endif %}
+  {% endif %}
+  <div class="prediction-selection" role="list" aria-label="Сохранённый прогноз">
+    {% for choice in prediction.choices %}
+    <div class="selection-row" role="listitem">
+      <span class="position-chip" aria-label="Прогнозируемое место {{ choice.position }}">{{ '%02d'|format(choice.position) }}</span>
+      <a class="selection-horse" href="{{ url_for('horses.detail_horse', horse_id=choice.horse_id) }}">{{ choice.horse.nickname }}</a>
+      {% if prediction.outcome == 'evaluated' %}
+        <span class="selection-verdict {{ 'is-correct' if choice.position_correct == true else 'is-incorrect' if choice.position_correct == false else '' }}">{{ '✓ Верная позиция' if choice.position_correct == true else '× Позиция не совпала' if choice.position_correct == false else '— Позиция не определена' }}</span>
+      {% else %}<span class="selection-verdict">{{ '— Без оценки' if prediction.outcome == 'void' else '◷ Ожидает результата' }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

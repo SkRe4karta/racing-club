@@ -1,0 +1,17 @@
+{% macro horse_card(horse, metric, editable=false) %}
+<article class="sport-card">
+  <div class="sport-card-heading"><span class="horse-placeholder" aria-hidden="true">♞</span><div><h3><a href="{{ url_for('horses.detail_horse',horse_id=horse.id) }}">{{ horse.nickname }}</a></h3><p>{{ horse.gender }} · {{ horse.age }} лет</p></div></div>
+  <dl class="mini-metrics"><div><dt>Выступления</dt><dd>{{ metric.starts }}</dd></div><div><dt>Победы</dt><dd>{{ metric.wins }}</dd></div><div><dt>Призовые</dt><dd>{{ metric.podium }}</dd></div></dl>
+  <div class="next-start"><span class="eyebrow">БЛИЖАЙШЕЕ УЧАСТИЕ</span>{% if metric.next_result %}<a href="{{ url_for('competitions.future_detail',comp_id=metric.next_result.competition_id) }}">{{ metric.next_result.competition.title }}</a><small>{{ metric.next_result.competition.formatted_date }} · {{ metric.next_result.competition.formatted_time }}</small>{% else %}<p class="text-muted">Официального участия пока нет</p>{% endif %}</div>
+  <div class="card-actions"><a class="btn btn-outline-secondary" href="{{ url_for('horses.detail_horse',horse_id=horse.id) }}">Профиль ↗</a>{% if editable %}<a class="btn btn-outline-secondary" href="{{ url_for('horses.edit_horse',horse_id=horse.id) }}">Редактировать</a>{% endif %}</div>
+</article>
+{% endmacro %}
+
+{% macro participation_card(row) %}
+<a class="sport-card participation-card" href="{{ url_for('competitions.future_detail',comp_id=row.competition_id) }}">
+  <span class="eyebrow">{{ row.competition.formatted_date }} / {{ row.competition.formatted_time }}</span>
+  <h3>{{ row.competition.title }} ↗</h3><p>{{ row.competition.location }}</p>
+  <div class="card-meta"><strong>{{ row.horse.nickname }}</strong><span>{{ row.competition.distance|string + ' м' if row.competition.distance else 'Дистанция уточняется' }}</span></div>
+  <span class="badge badge-planned">{{ 'Официальный допуск' if row.application_id else 'Исключение ROOT' if row.start_number else 'Прежний список участников' }}</span>
+</a>
+{% endmacro %}

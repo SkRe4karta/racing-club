@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Вход — Racing Club{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>Вход</h1><p>Используйте email и пароль вашего аккаунта.</p></div></div>
+<form method="POST" class="card p-4 auth-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3"><label for="email">Email</label><input class="form-control" id="email" name="email" type="email" maxlength="254" autocomplete="username" value="{{ request.form.get('email', '') }}" required></div>
+  <div class="mb-3"><label for="password">Пароль</label><input class="form-control" id="password" name="password" type="password" maxlength="128" autocomplete="current-password" required></div>
+  <button class="btn btn-primary" type="submit">Войти</button>
+  <p><a href="{{ url_for('auth.register') }}">Создать аккаунт</a></p>
+</form>
+{% endblock %}

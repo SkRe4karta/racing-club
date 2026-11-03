@@ -19,3 +19,19 @@ htmlcov/
 *.db-*
 *.bak
 screenshots/
+
+artifacts/
+.static-tools/
+.static-bootstrap/
+
+# Reviewed public interface captures for README only.
+!docs/screenshots/
+docs/screenshots/*
+!docs/screenshots/beta1-home.png
+!docs/screenshots/beta1-rankings.png
+!docs/screenshots/beta1-protocol.png
+!docs/screenshots/beta1-mobile.png
+!docs/screenshots/teamcity-*.png
+
+.sql-tools/
+.sql-bootstrap/

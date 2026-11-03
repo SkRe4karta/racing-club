@@ -1,22 +1,37 @@
 (() => {
   const toggle = document.querySelector('#theme-toggle');
-  const media = matchMedia('(prefers-color-scheme: dark)');
-  const updateThemeLabel = () => { toggle.setAttribute('aria-label', document.documentElement.dataset.theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'); };
-  updateThemeLabel();
-  toggle.addEventListener('click', () => {
-    const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  const choices = document.querySelectorAll('[data-theme-choice]');
+  const updateTheme = () => {
+    const theme = document.documentElement.dataset.theme;
+    toggle.setAttribute('aria-label', theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
+    choices.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme)));
+    const status = document.querySelector('[data-theme-status]');
+    if (status) status.textContent = theme === 'dark' ? 'Выбрана тёмная тема' : 'Выбрана светлая тема';
+  };
+  const setTheme = theme => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('racing-theme', theme); } catch (_) {}
-    updateThemeLabel();
+    updateTheme();
+  };
+  updateTheme();
+  toggle.addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  choices.forEach(button => button.addEventListener('click', () => setTheme(button.dataset.themeChoice)));
+  addEventListener('storage', event => {
+    if (event.key === 'racing-theme' && ['dark', 'light'].includes(event.newValue)) setTheme(event.newValue);
   });
-  media.addEventListener('change', e => { let saved; try { saved = localStorage.getItem('racing-theme'); } catch (_) {} if (!saved) { document.documentElement.dataset.theme = e.matches ? 'dark' : 'light'; updateThemeLabel(); } });
+
   const menu = document.querySelector('.menu-toggle'), sidebar = document.querySelector('.sidebar'), shade = document.querySelector('.menu-shade');
+  if (menu && sidebar) {
   function closeMenu() { sidebar.classList.remove('open'); menu.setAttribute('aria-expanded','false'); shade.hidden = true; if (innerWidth <= 900) sidebar.inert = true; }
   function syncMenu() { sidebar.inert = innerWidth <= 900 && !sidebar.classList.contains('open'); }
   syncMenu(); addEventListener('resize', syncMenu);
   menu.addEventListener('click', () => { if (sidebar.classList.contains('open')) { closeMenu(); return; } sidebar.inert = false; sidebar.classList.add('open'); shade.hidden = false; menu.setAttribute('aria-expanded','true'); sidebar.querySelector('a').focus(); });
   shade.addEventListener('click', closeMenu);
-  document.addEventListener('keydown', e => { if (sidebar.classList.contains('open')) { if (e.key === 'Escape') { closeMenu(); menu.focus(); } if (e.key === 'Tab') { const links = [...sidebar.querySelectorAll('a')]; const first = links[0], last = links.at(-1); if(e.shiftKey && document.activeElement === first) {e.preventDefault(); last.focus();} else if(!e.shiftKey && document.activeElement === last) {e.preventDefault(); first.focus();} } } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) { closeMenu(); menu.focus(); } });
+  }
+  const publicMenu = document.querySelector('.public-menu-button'), publicNav = document.querySelector('.public-nav');
+  publicMenu.addEventListener('click', () => { const open = publicNav.classList.toggle('open'); publicMenu.setAttribute('aria-expanded',String(open)); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && publicNav.classList.contains('open')) {publicNav.classList.remove('open'); publicMenu.setAttribute('aria-expanded','false'); publicMenu.focus();} });
   const parseTime = value => {
     value = value.trim().replace(',', '.');
     if (!/^(?:\d+:)?\d+(?:\.\d+)?$/.test(value)) return false;

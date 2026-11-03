@@ -13,3 +13,6 @@ instance
 .agents
 .pytest_cache
 screenshots
+
+artifacts
+docs

@@ -1,0 +1,20 @@
+# Web only. PostgreSQL and its volume are intentionally external to this file.
+services:
+  web:
+    image: "${RACING_IMAGE:?Explicit immutable approved image required}"
+    ports:
+      - "${PROD_WEB_BIND:?Set verified bind address}:${PROD_WEB_PORT:?Set verified port}:8080"
+    environment:
+      DATABASE_URL: "${PROD_DATABASE_URL:?Private production database URL}"
+      SECRET_KEY: "${SECRET_KEY:?Persistent production session key}"
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:?Explicit HTTP lab or HTTPS configuration}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+networks:
+  default:
+    external: true
+    name: "${PROD_NETWORK:?Verified existing production network}"

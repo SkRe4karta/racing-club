@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Заявка № {{ application.id }} — Racing Club{% endblock %}
+{% block content %}
+<h1>Заявка № {{ application.id }}</h1>
+<div class="card p-4"><h2>{{ application.status_label }}</h2>
+<p><a href="{{ url_for('competitions.past_detail' if application.competition.is_completed else 'competitions.future_detail', comp_id=application.competition_id) }}">{{ application.competition.title }}</a> · {{ application.competition.formatted_date }} {{ application.competition.formatted_time }}</p>
+<p>Лошадь: <a href="{{ url_for('horses.detail_horse', horse_id=application.horse_id) }}">{{ application.horse.nickname }}</a></p>
+<p>Жокей: {{ application.jockey.full_name }}</p>
+<p>Согласие владельца: {{ 'получено' if application.personal_consent('owner') else 'ожидается' }}. Согласие жокея: {{ 'получено' if application.personal_consent('jockey') else 'ожидается' }}.</p>
+<p>Инициатор: {{ 'владелец' if application.initiator_side == 'owner' else 'жокей' }}. Создана {{ application.created_at.strftime('%d.%m.%Y %H:%M') }} UTC.</p>
+<p>Изменение пары требует отмены и новой заявки. Согласование обеих сторон ещё не означает допуск к старту.</p>
+{% if registration_open(application.competition) %}<div class="d-flex gap-2 flex-wrap">
+{% if can('confirm_application', application) %}
+<form method="POST" action="{{ url_for('cabinet.application_decision', application_id=application.id, action='confirm') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-success">Подтвердить приглашение</button></form>
+<form method="POST" action="{{ url_for('cabinet.application_decision', application_id=application.id, action='reject') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-danger">Отклонить приглашение</button></form>
+{% endif %}
+{% if can('cancel_application', application) %}<form method="POST" action="{{ url_for('cabinet.application_decision', application_id=application.id, action='cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-outline-secondary">Отменить свою заявку</button></form>{% endif %}
+</div>{% else %}<p class="alert alert-warning">Регистрация закрыта. Изменения недоступны.</p>{% endif %}
+</div>
+<h2>История решений</h2><ol>
+{% for event in application.events %}<li>{{ event.created_at.strftime('%d.%m.%Y %H:%M:%S') }} UTC · {{ 'Допущена администратором' if event.status == 'admin_confirmed' else {'created':'Создана', 'confirmed':'Подтверждена второй стороной', 'rejected':'Отклонена', 'cancelled':'Отменена'}[event.action] }} · {{ application_labels[event.status] }} · аккаунт № {{ event.actor_id }}</li>{% endfor %}</ol>
+<a class="btn btn-outline-secondary" href="{{ url_for('cabinet.applications') }}">Все заявки</a>
+{% endblock %}
