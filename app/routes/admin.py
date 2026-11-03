@@ -74,7 +74,7 @@ def competition_form(identifier=None):
     code = 200
     data = request.form if request.method == 'POST' else service.competition_snapshot(comp) if comp else {}
     if request.method == 'POST':
-        reject_service_fields({'title', 'event_date', 'event_time', 'location', 'distance', 'max_participants', 'registration_deadline'})
+        reject_service_fields({'title', 'event_date', 'event_time', 'location', 'distance', 'max_participants', 'registration_deadline', 'registration_notes'})
         try:
             comp = service.save_competition(current_user, {k: v for k, v in request.form.items() if k != 'csrf_token'}, identifier)
             flash('Соревнование сохранено. Стартовый список формируется отдельным допуском заявок.', 'success')

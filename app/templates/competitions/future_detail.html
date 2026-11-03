@@ -3,6 +3,8 @@
   {{ competition.title }} — Состязание
 {% endblock %}
 {% block content %}
+{% if competition.registration_notes %}<section class="card p-3"><h2>Условия участия</h2><p class="text-break" style="white-space: pre-wrap">{{ competition.registration_notes }}</p></section>{% endif %}
+
 <p><a class="btn btn-primary" href="{{ url_for('predictions.detail', comp_id=competition.id) }}">Спортивные прогнозы ↗</a></p>
   <div class="page-heading">
     <div>

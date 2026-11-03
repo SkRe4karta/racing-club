@@ -43,6 +43,7 @@ run_test_suite() {
 }
 run_test_suite unit none
 run_test_suite ci-integration none
+run_test_suite lab8-sqlite none
 # Disposable container writable layer; no named volumes are created by this job.
 docker network create --internal "$network" >/dev/null
 docker run -d --name "$postgres" --network "$network" --tmpfs /var/lib/postgresql \
@@ -54,6 +55,17 @@ for attempt in {1..60}; do
 done
 "$ready" || { echo 'PostgreSQL did not become ready' >&2; exit 1; }
 run_test_suite postgres "$network" "postgresql+psycopg://postgres@$postgres/postgres"
+run_test_suite lab8-postgres "$network" "postgresql+psycopg://postgres@$postgres/postgres"
+mkdir -p artifacts/schema
+docker exec "$postgres" createdb -U postgres racing_lab8_schema
+docker run --rm --network "$network" -e SECRET_KEY="isolated-schema-export-only" \
+  -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
+  "$checks" flask --app run db upgrade
+docker exec "$postgres" pg_dump -U postgres --schema-only --no-owner --no-privileges racing_lab8_schema > artifacts/schema/schema.sql
+docker run --rm --network "$network" \
+  -e DATABASE_URL="postgresql+psycopg://postgres@$postgres/racing_lab8_schema" \
+  "$checks" python scripts/ci/schema_snapshot.py --expected-db racing_lab8_schema > artifacts/schema/structure.json
+
 docker build --target runtime --build-arg VCS_REF="$sha" -t "$image" .
 docker exec "$postgres" createdb -U postgres racing_ci_smoke
 # Only ephemeral CI session key, no production credentials.
