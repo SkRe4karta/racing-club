@@ -37,7 +37,7 @@ class NotesMigrationTests(unittest.TestCase):
     def test_upgrade_0005_preserves_competitions(self):
         from flask_migrate import upgrade
         from sqlalchemy import text
-        from sqlalchemy.exc import IntegrityError
+        from sqlalchemy.exc import IntegrityError, DataError
         from app import create_app
         from tests.support import isolated_database
         with isolated_database() as uri:
@@ -52,7 +52,7 @@ class NotesMigrationTests(unittest.TestCase):
                     self.assertEqual(comp.title, 'Сохранённый старт')
                     self.assertIsNone(comp.registration_notes)
                     comp.registration_notes = 'x' * 2001
-                    with self.assertRaises(IntegrityError):
+                    with self.assertRaises((IntegrityError, DataError)):
                         db.session.commit()
                     db.session.rollback()
                     self.assertEqual(db.session.get(Competition, 1).title, 'Сохранённый старт')
