@@ -134,7 +134,7 @@ class Alpha2Tests(unittest.TestCase):
         self.login('jockey')
         page = self.client.get('/cabinet/')
         self.assertEqual(page.status_code, 200)
-        for label in ['Кабинет жокея', 'Архивный заезд', '100.0%', 'Ожидает согласования жокея', 'Последние уведомления']:
+        for label in ['Кабинет жокея', 'Архивный заезд', '100.0%', 'Ожидает согласования жокея', '<h2>Уведомления</h2>']:
             self.assertIn(label, page.text)
 
     def test_guest_viewer_admin_boundaries_and_private_cache(self):
